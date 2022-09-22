@@ -76,6 +76,7 @@ celerybeat-schedule
 .venv
 venv
 .bugtest
+*venv/
 
 # Spyder project settings
 .spyderproject
@@ -124,6 +125,9 @@ results
 supervisord.log
 supervisord.pid
 xdummy.log
+log/
+wandb/
+logs/
 
 # replay data
 *.jsonl

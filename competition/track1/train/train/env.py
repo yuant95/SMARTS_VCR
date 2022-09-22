@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 import gym
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from train.action import Action as DiscreteAction
+# from train.action import Action as Continuous_Action
 from train.info import Info
 from train.observation import Concatenate, FilterObs, SaveObs
 from train.reward import Reward
@@ -27,7 +28,7 @@ def wrappers(config: Dict[str, Any]):
         # Used to save selected observation parameters for use in DiscreteAction wrapper.
         SaveObs,
         # Used to discretize action space for easier RL training.
-        DiscreteAction,
+        DiscreteAction ,#if config["action_wrapper"]=="discrete" else Continuous_Action,
         # Used to filter only the selected observation parameters.
         FilterObs,
         # Used to stack sequential observations to include temporal information. 
@@ -36,8 +37,8 @@ def wrappers(config: Dict[str, Any]):
         lambda env: Concatenate(env=env, channels_order="first"),
         # Modifies interface to a single agent interface, which is compatible with libraries such as gym, Stable Baselines3, TF-Agents, etc.
         SingleAgent,
-        lambda env: DummyVecEnv([lambda: env]),
-        lambda env: VecMonitor(venv=env, filename=str(config["logdir"]), info_keywords=("is_success",))
+        # lambda env: DummyVecEnv([lambda: env]),
+        # lambda env: VecMonitor(venv=env, filename=str(config["logdir"]), info_keywords=("is_success",))
     ]
     # fmt: on
 
@@ -45,7 +46,7 @@ def wrappers(config: Dict[str, Any]):
 
 
 def make(
-    config: Dict[str, Any], scenario: str, wrappers: List[gym.Wrapper] = []
+    config: Dict[str, Any], scenario: str, wrappers: List[gym.Wrapper] = [], seed = 0
 ) -> gym.Env:
     """Make environment.
 
@@ -67,6 +68,8 @@ def make(
         img_pixels=config["img_pixels"],
         sumo_headless=not config["sumo_gui"],  # If False, enables sumo-gui display.
     )
+    
+    env.seed(seed)
 
     # Wrap the environment
     for wrapper in wrappers:

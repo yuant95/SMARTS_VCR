@@ -1,4 +1,3 @@
-from multiprocessing import dummy
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -15,7 +14,6 @@ import torch as th
 from ruamel.yaml import YAML
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env
 from train import env as multi_scenario_env
 import network
 
@@ -28,15 +26,16 @@ warnings.simplefilter("ignore", category=DeprecationWarning)
 warnings.simplefilter("ignore", category=ResourceWarning)
 yaml = YAML(typ="safe")
 
-def get_config(args: argparse.Namespace):
+
+def main(args: argparse.Namespace):
     # Load config file.
     config_file = yaml.load(
-        (Path(__file__).absolute().parent / "config.yaml").read_text()
+        (Path(__file__).absolute().parent / "config_baseline.yaml").read_text()
     )
 
     # Load env config.
     config = config_file["smarts"]
-    config.update(vars(args))
+    config["mode"] = args.mode
 
     # Setup logdir.
     if not args.logdir:
@@ -47,20 +46,6 @@ def get_config(args: argparse.Namespace):
     logdir.mkdir(parents=True, exist_ok=True)
     config["logdir"] = logdir
     print("\nLogdir:", logdir, "\n")
-
-    wandb_run = wandb.init(
-        project="SMARTS",
-        config=config,
-        sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
-        monitor_gym=True,  # auto-upload the videos of agents playing the game
-        save_code=True,  # optional
-        )
-    config = wandb_run.config
-
-    return config, wandb_run
-
-def main(args: argparse.Namespace):
-    config, wandb_run = get_config(args)
 
     # Setup model.
     if config["mode"] == "evaluate":
@@ -73,73 +58,109 @@ def main(args: argparse.Namespace):
     else:
         raise KeyError(f'Expected \'train\' or \'evaluate\', but got {config["mode"]}.')
 
+    # # Make training and evaluation environments.
+    # # envs_train = {}
+    # # envs_eval = {}
+    # wrappers = multi_scenario_env.wrappers(config=config)
+    # # for scen in config["scenarios"]:
+    # #     envs_train[f"{scen}"] = multi_scenario_env.make(
+    # #         config=config, scenario=scen, wrappers=wrappers
+    # #     )
+    # #     envs_eval[f"{scen}"] = multi_scenario_env.make(
+    # #         config=config, scenario=scen, wrappers=wrappers
+    # #     )
+
+    # envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
+    #                 for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
+
+    # envs_train = subproc_vec_env.SubprocVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))], start_method="fork")
+
+    # envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
+    #                 for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
+
+    # envs_eval = subproc_vec_env.SubprocVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))], start_method="fork")
+    
+
+    # # Run training or evaluation.
+    # run(envs_train=envs_train, envs_eval=envs_eval, config=config)
+
     # Make training and evaluation environments.
     envs_train = {}
     envs_eval = {}
     wrappers = multi_scenario_env.wrappers(config=config)
-
-    envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-                   for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
-
-    envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
-    
-    envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-                    for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
-                   
-    envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
+    for scen in config["scenarios"]:
+        envs_train[f"{scen}"] = multi_scenario_env.make(
+            config=config, scenario=scen, wrappers=wrappers
+        )
+        envs_eval[f"{scen}"] = multi_scenario_env.make(
+            config=config, scenario=scen, wrappers=wrappers
+        )
 
     # Run training or evaluation.
-    run(envs_train=envs_train, envs_eval=envs_eval, config=config, wandb_run = wandb_run)
+    run(envs_train=envs_train, envs_eval=envs_eval, config=config)
 
     # Close all environments
-    envs_train.close()
-    envs_eval.close()
+    for env in envs_train.values():
+        env.close()
+    for env in envs_eval.values():
+        env.close()
 
 
 def run(
     envs_train: Dict[str, gym.Env],
     envs_eval: Dict[str, gym.Env],
     config: Dict[str, Any],
-    wandb_run
 ):
+    wandb_run = wandb.init(
+        project="SMARTS",
+        config=config,
+        sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+        monitor_gym=True,  # auto-upload the videos of agents playing the game
+        save_code=True,  # optional
+    )
     if config["mode"] == "train":
         print("\nStart training.\n")
+        scenarios_iter = cycle(config["scenarios"])
         model = getattr(sb3lib, config["alg"])(
-            env=envs_train, #[next(scenarios_iter)],
+            env=envs_train[next(scenarios_iter)],
             verbose=1,
-            tensorboard_log=config["logdir"] + "/tensorboard",
+            tensorboard_log=config["logdir"] / "tensorboard",
             **network.combined_extractor(config),
         )
         for index in range(config["epochs"]):
+            scen = next(scenarios_iter)
+            env_train = envs_train[scen]
+            env_eval = envs_eval[scen]
+            print(f"\nTraining on {scen}.\n")
             checkpoint_callback = CheckpointCallback(
                 save_freq=config["checkpoint_freq"],
-                save_path=config["logdir"] + "/checkpoint",
+                save_path=config["logdir"] / "checkpoint",
                 name_prefix=f"{config['alg']}_{index}",
             )
             custom_callback = CustomCallback(
                 verbose = 1, 
-                eval_env=envs_eval,
+                eval_env=env_eval,
                 n_eval_episodes = config["eval_eps"], 
                 eval_freq=config["eval_freq"],
                 log_freq=100, 
                 deterministic=True,
                 render=False, 
                 model_name='sb3_model', 
-                model_save_path= str(config["logdir"] + "/eval"),
+                model_save_path= str(config["logdir"] / "eval"),
                 gradient_save_freq=0, 
                 run_id=wandb_run.id
             )
-            model.set_env(envs_train)
+            model.set_env(env_train)
             model.learn(
                 total_timesteps=config["train_steps"],
                 callback=[custom_callback, checkpoint_callback],
             )
 
         # Save trained model.
-        save_dir = config["logdir"] + "/train"
+        save_dir = config["logdir"] / "train"
         save_dir.mkdir(parents=True, exist_ok=True)
         time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        model.save(save_dir + ("/model_" + time))
+        model.save(save_dir / ("model_" + time))
         print("\nSaved trained model.\n")
 
     if config["mode"] == "evaluate":
@@ -176,48 +197,6 @@ if __name__ == "__main__":
         help="Directory path to saved RL model. Required if `--mode=evaluate`.",
         type=str,
         default=None,
-    )
-    parser.add_argument(
-        "--epochs",
-        help=" Number of training loops",
-        type=int,
-        default=5_000,
-    )
-    parser.add_argument(
-        "--train_steps",
-        help="Training per scenario",
-        type=int,
-        default=10_000,
-    )
-    parser.add_argument(
-        "--checkpoint_freq",
-        help="Save a model every checkpoint_freq calls to env.step().",
-        type=int,
-        default=5_000 ,
-    )
-    parser.add_argument(
-        "--eval_eps",
-        help="Number of evaluation epsiodes.",
-        type=int,
-        default=100,
-    )
-    parser.add_argument(
-        "--eval_freq",
-        help=" Evaluate the trained model every eval_freq steps and save the best model.",
-        type=int,
-        default=500,
-    )
-    parser.add_argument(
-        "--alg",
-        help="Stable Baselines3 algorithm.",
-        type=str,
-        default="PPO",
-    )
-    parser.add_argument(
-        "--action_wrapper",
-        help="Choose from discrete and continous",
-        type=str,
-        default="discrete",
     )
 
     args = parser.parse_args()
