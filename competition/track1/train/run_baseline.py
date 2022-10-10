@@ -58,36 +58,10 @@ def main(args: argparse.Namespace):
     else:
         raise KeyError(f'Expected \'train\' or \'evaluate\', but got {config["mode"]}.')
 
-    # # Make training and evaluation environments.
-    # # envs_train = {}
-    # # envs_eval = {}
-    # wrappers = multi_scenario_env.wrappers(config=config)
-    # # for scen in config["scenarios"]:
-    # #     envs_train[f"{scen}"] = multi_scenario_env.make(
-    # #         config=config, scenario=scen, wrappers=wrappers
-    # #     )
-    # #     envs_eval[f"{scen}"] = multi_scenario_env.make(
-    # #         config=config, scenario=scen, wrappers=wrappers
-    # #     )
-
-    # envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-    #                 for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
-
-    # envs_train = subproc_vec_env.SubprocVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))], start_method="fork")
-
-    # envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-    #                 for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
-
-    # envs_eval = subproc_vec_env.SubprocVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))], start_method="fork")
-    
-
-    # # Run training or evaluation.
-    # run(envs_train=envs_train, envs_eval=envs_eval, config=config)
-
     # Make training and evaluation environments.
     envs_train = {}
     envs_eval = {}
-    wrappers = multi_scenario_env.wrappers(config=config)
+    wrappers = multi_scenario_env.wrappers_baseline(config=config)
     for scen in config["scenarios"]:
         envs_train[f"{scen}"] = multi_scenario_env.make(
             config=config, scenario=scen, wrappers=wrappers

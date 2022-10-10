@@ -67,27 +67,27 @@ class CustomCallback(BaseCallback):
         """
         # Evaluate the model
         # policy = lambda obs_: self.model.predict(obs_, deterministic=True)[0]
-        # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env, STATIC_ARGS['tracks_folder'])
+        # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env)
 
-        # # log to wandb
+        # log to wandb
 
-        # episode_rewards, episode_lengths = evaluate_policy(
-        #         self.model,
-        #         self.eval_env,
-        #         n_eval_episodes=self.n_eval_episodes,
-        #         render=self.render,
-        #         deterministic=self.deterministic,
-        #         return_episode_rewards=True,
-        #     )
+        episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+                self.model,
+                self.eval_env,
+                n_eval_episodes=self.n_eval_episodes,
+                render=self.render,
+                deterministic=self.deterministic,
+                return_episode_rewards=True,
+            )
         
-        # mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
-        # mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
-        # self.eval_env.reset()
+        mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
+        mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
+        self.eval_env.reset()
 
-        # wandb.log({'det_avg_reward':mean_reward,
-        #            'det_avg_ep_len':mean_ep_length,
-        #            'time_steps': self.num_timesteps,
-        #            'updates': self.model._n_updates})
+        wandb.log(dict({'det_avg_reward':mean_reward,
+                   'det_avg_ep_len':mean_ep_length,
+                   'time_steps': self.num_timesteps,
+                   'updates': self.model._n_updates}, **episode_infos))
         return None
 
     def _on_rollout_start(self) -> None:
@@ -104,7 +104,7 @@ class CustomCallback(BaseCallback):
             # Evaluate the model
             # policy = lambda obs_: self.model.predict(obs_, deterministic=True)[0]
             # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env, STATIC_ARGS['tracks_folder'])
-            episode_rewards, episode_lengths = evaluate_policy(
+            episode_rewards, episode_lengths, episode_infos = evaluate_policy(
                 self.model,
                 self.eval_env,
                 n_eval_episodes=self.n_eval_episodes,
@@ -116,12 +116,17 @@ class CustomCallback(BaseCallback):
             mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
             mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
 
-            wandb.log({'det_avg_reward':mean_reward,
-                       'det_avg_ep_len':mean_ep_length,
-                    #    'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
-                    #    'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer]),
-                       'time_steps': self.num_timesteps,
-                       'updates': self.model._n_updates})
+            # wandb.log({'det_avg_reward':mean_reward,
+            #            'det_avg_ep_len':mean_ep_length,
+            #         #    'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
+            #         #    'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer]),
+            #            'time_steps': self.num_timesteps,
+            #            'updates': self.model._n_updates})
+            wandb.log(dict({'det_avg_reward':mean_reward,
+                'det_avg_ep_len':mean_ep_length,
+                'time_steps': self.num_timesteps,
+                'updates': self.model._n_updates}, **episode_infos))
+            
 
             if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
                 wandb.log({'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
@@ -181,15 +186,41 @@ class CustomCallback(BaseCallback):
         
         # self.eval_env.reset()
         # log to wandb
-        wandb.log({
-                    # 'det_avg_reward':mean_reward,
-                #    'det_avg_ep_len':mean_ep_length,
-                   'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
-                   'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer]),
-                   'time_steps': self.num_timesteps,
-                   'updates': self.model._n_updates})
+        # wandb.log({
+        #             # 'det_avg_reward':mean_reward,
+        #         #    'det_avg_ep_len':mean_ep_length,
+        #            'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
+        #            'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer]),
+        #            'time_steps': self.num_timesteps,
+        #            'updates': self.model._n_updates})
         # self.save_model()
-        return None
+        # return None
+
+        # Evaluate the model
+        episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+                self.model,
+                self.eval_env,
+                n_eval_episodes=self.n_eval_episodes,
+                render=self.render,
+                deterministic=self.deterministic,
+                return_episode_rewards=True,
+            )
+        
+        mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
+        mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
+        
+        wandb.log(dict({'det_avg_reward':mean_reward,
+            'det_avg_ep_len':mean_ep_length,
+            'time_steps': self.num_timesteps,
+            'updates': self.model._n_updates}, **episode_infos))
+        
+
+        if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
+            wandb.log({'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
+                    'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer])})
+
+        self.save_model()
+
 
     def save_model(self) -> None:
         self.model.save(self.path)
