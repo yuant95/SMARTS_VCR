@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 import gym
 import numpy as np
+from wandb import agent
 from smarts.core.utils.math import signed_dist_to_line
 
 
@@ -19,6 +20,7 @@ class Reward(gym.Wrapper):
         """
         obs, reward, done, info = self.env.step(action)
         wrapped_reward = self._reward(obs, reward)
+        wrapped_info = self._info(obs, reward, info)
 
         for agent_id, agent_done in done.items():
             if agent_id != "__all__" and agent_done == True:
@@ -38,7 +40,7 @@ class Reward(gym.Wrapper):
                     print("Events: ", obs[agent_id]["events"])
                     raise Exception("Episode ended for unknown reason.")
 
-        return obs, wrapped_reward, done, info
+        return obs, wrapped_reward, done, wrapped_info
 
     def _reward_ori(
         self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64]
@@ -84,6 +86,21 @@ class Reward(gym.Wrapper):
 
         return reward
 
+    def _info(self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64], info: Dict[Any, Any]
+    ) -> Dict[str, np.float64]:
+        
+        for agent_id, agent_reward in env_reward.items():
+            info[agent_id]["rewards"] = {}
+            info[agent_id]["rewards"]["complete"] = self._completion(obs[agent_id])
+            info[agent_id]["rewards"]["humanness"] = self._humanness(obs[agent_id])
+            info[agent_id]["rewards"]["time"] = self._time(obs[agent_id])
+            info[agent_id]["rewards"]["rules"] = self._rules(obs[agent_id])
+            info[agent_id]["rewards"]["goal"] = self._goal(obs[agent_id])
+            info[agent_id]["rewards"]["distant"] = np.float64(agent_reward)
+    
+        return info
+
+
     def _reward(
         self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64]
     ) -> Dict[str, np.float64]:
@@ -92,34 +109,17 @@ class Reward(gym.Wrapper):
         for agent_id, agent_reward in env_reward.items():
 
             # These are from the evaluation metrics
-            reward[agent_id] += self._completion(obs[agent_id])
-            reward[agent_id] += self._humanness(obs[agent_id])
-            reward[agent_id] += self._time(obs[agent_id])
-            reward[agent_id] += self._rules(obs[agent_id])
-            
-            # NOTE:Below is the original reward for better training?
-            # Penalty for driving off road
-            if obs[agent_id]["events"]["off_road"]:
-                reward[agent_id] -= np.float64(10)
-                print(f"{agent_id}: Went off road.")
-                break
+            complete = self._completion(obs[agent_id])
+            humanness = self._humanness(obs[agent_id])
+            time = self._time(obs[agent_id])
+            rules = self._rules(obs[agent_id])
+            goal = self._goal(obs[agent_id])
 
-            # Penalty for driving off route
-            if obs[agent_id]["events"]["off_route"]:
-                reward[agent_id] -= np.float64(10)
-                print(f"{agent_id}: Went off route.")
-                break
-
-            # Penalty for driving on road shoulder
-            if obs[agent_id]["events"]["on_shoulder"]:
-                reward[agent_id] -= np.float64(2)
-                break
-
-            # Reward for reaching goal
-            if obs[agent_id]["events"]["reached_goal"]:
-                reward[agent_id] += np.float64(30)
-
-            # Reward for distance travelled
+            reward[agent_id] += complete
+            reward[agent_id] += humanness
+            reward[agent_id] += time
+            reward[agent_id] += rules
+            reward[agent_id] += goal
             reward[agent_id] += np.float64(agent_reward)
 
         return reward
@@ -134,11 +134,10 @@ class Reward(gym.Wrapper):
     def _humanness(
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
-        return (
-            + self._dist_to_obstacles(agent_obs)
+        return min(np.float64(10.0), max( (self._dist_to_obstacles(agent_obs)
             - self._jerk_angular(agent_obs)
             - self._jerk_linear(agent_obs)
-            - self._lane_center_offset(agent_obs)
+            - self._lane_center_offset(agent_obs)), np.float64(-10.0))
         ) 
 
     def _rules(
@@ -150,13 +149,37 @@ class Reward(gym.Wrapper):
 
         score -= self._speed_limit(agent_obs)
 
-        return score
+        return min(np.float64(10.0), max(score, np.float64(-10.0))) 
 
     def _time(self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> Dict[str, np.float64]:
 
         # TODO: how to penalize the length of steps taken? (counts.steps_adjusted )
-        return -self._dist_to_goal(agent_obs)
+        # NOTE: This doesn't seem to make sense during training.
+        # return -self._dist_to_goal(agent_obs)
+        return 0.0
+
+    def _goal(self, agent_obs: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, np.float64]:
+        r = 0.0
+        # Penalty for driving off road
+        if agent_obs["events"]["off_road"]:
+           r -= np.float64(10)
+
+        # Penalty for driving off route
+        if agent_obs["events"]["off_route"]:
+            r -= np.float64(10)
+
+        # Penalty for driving on road shoulder
+        if agent_obs["events"]["on_shoulder"]:
+            r -= np.float64(2)
+
+        # Reward for reaching goal
+        if agent_obs["events"]["reached_goal"]:
+            r += np.float64(30)
+
+        return np.float64(r)
+
 
     def _dist_to_goal(self, obs: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
         mission = obs["mission"]
