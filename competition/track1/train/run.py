@@ -15,7 +15,7 @@ import torch as th
 from ruamel.yaml import YAML
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env
+from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env, VecMonitor 
 from train import env as multi_scenario_env
 import network
 
@@ -76,17 +76,19 @@ def main(args: argparse.Namespace):
     # Make training and evaluation environments.
     envs_train = {}
     envs_eval = {}
-    wrappers = multi_scenario_env.wrappers(config=config)
+    wrappers = multi_scenario_env.wrappers_vec(config=config)
 
     envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
                    for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
-
     envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
+    envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
+    
     
     envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-                    for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
-                   
+                    for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]   
     envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
+    envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
+
 
     # Run training or evaluation.
     run(envs_train=envs_train, envs_eval=envs_eval, config=config, wandb_run = wandb_run)
@@ -218,6 +220,13 @@ if __name__ == "__main__":
         help="Choose from discrete and continous",
         type=str,
         default="discrete",
+    )
+    parser.add_argument(
+        "--weights",
+        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        type=float,
+        nargs='+',
+        default=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     )
 
     args = parser.parse_args()

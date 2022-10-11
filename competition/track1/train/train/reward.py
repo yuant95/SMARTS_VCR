@@ -7,8 +7,13 @@ from smarts.core.utils.math import signed_dist_to_line
 
 
 class Reward(gym.Wrapper):
-    def __init__(self, env: gym.Env):
+    def __init__(self, env: gym.Env, weights: list):
         super().__init__(env)
+        self.weights = np.array(weights)
+        if len(weights) != 6:
+            raise Exception("The reward weights must have length of 6 rather than {}".format(len(weights)))
+        self.reward = None
+        self.weighted_reward = None
 
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
@@ -89,14 +94,23 @@ class Reward(gym.Wrapper):
     def _info(self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64], info: Dict[Any, Any]
     ) -> Dict[str, np.float64]:
         
+        if (self.reward == None).any() or (self.weighted_reward == None).any():
+            raise Exception("Tried to access reward and weighted reward before initialization.")
+
         for agent_id, agent_reward in env_reward.items():
             info[agent_id]["rewards"] = {}
-            info[agent_id]["rewards"]["complete"] = self._completion(obs[agent_id])
-            info[agent_id]["rewards"]["humanness"] = self._humanness(obs[agent_id])
-            info[agent_id]["rewards"]["time"] = self._time(obs[agent_id])
-            info[agent_id]["rewards"]["rules"] = self._rules(obs[agent_id])
-            info[agent_id]["rewards"]["goal"] = self._goal(obs[agent_id])
-            info[agent_id]["rewards"]["distant"] = np.float64(agent_reward)
+            info[agent_id]["rewards"]["complete"] = self.reward[0]
+            info[agent_id]["rewards"]["humanness"] = self.reward[1]
+            info[agent_id]["rewards"]["time"] = self.reward[2]
+            info[agent_id]["rewards"]["rules"] = self.reward[3]
+            info[agent_id]["rewards"]["goal"] = self.reward[4]
+            info[agent_id]["rewards"]["distant"] = self.reward[5]
+            info[agent_id]["rewards"]["weighted_complete"] = self.weighted_reward[0]
+            info[agent_id]["rewards"]["weighted_humanness"] = self.weighted_reward[1]
+            info[agent_id]["rewards"]["weighted_time"] = self.weighted_reward[2]
+            info[agent_id]["rewards"]["weighted_rules"] = self.weighted_reward[3]
+            info[agent_id]["rewards"]["weighted_goal"] = self.weighted_reward[4]
+            info[agent_id]["rewards"]["weighted_distant"] = self.weighted_reward[5]
     
         return info
 
@@ -115,12 +129,9 @@ class Reward(gym.Wrapper):
             rules = self._rules(obs[agent_id])
             goal = self._goal(obs[agent_id])
 
-            reward[agent_id] += complete
-            reward[agent_id] += humanness
-            reward[agent_id] += time
-            reward[agent_id] += rules
-            reward[agent_id] += goal
-            reward[agent_id] += np.float64(agent_reward)
+            self.reward = np.array([complete, humanness, time, rules, goal, np.float64(agent_reward)])
+            self.weighted_reward = np.multiply(self.reward, self.weights)
+            reward[agent_id] += np.sum(self.weighted_reward)
 
         return reward
 
