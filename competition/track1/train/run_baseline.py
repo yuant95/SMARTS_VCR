@@ -57,6 +57,8 @@ def main(args: argparse.Namespace):
         pass
     else:
         raise KeyError(f'Expected \'train\' or \'evaluate\', but got {config["mode"]}.')
+    
+    config["baseline"] = args.baseline
 
     # Make training and evaluation environments.
     envs_train = {}
@@ -101,6 +103,8 @@ def run(
             tensorboard_log=config["logdir"] / "tensorboard",
             **network.combined_extractor(config),
         )
+        if config["baseline"]:
+            model.load(config["baseline"])
         for index in range(config["epochs"]):
             scen = next(scenarios_iter)
             env_train = envs_train[scen]
@@ -169,6 +173,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         help="Directory path to saved RL model. Required if `--mode=evaluate`.",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--baseline",
+        help="Will load the model given the path",
         type=str,
         default=None,
     )
