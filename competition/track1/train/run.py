@@ -83,7 +83,7 @@ def main(args: argparse.Namespace):
     envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
     
-    
+
     envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
                     for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]   
     envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
@@ -112,6 +112,8 @@ def run(
             tensorboard_log=config["logdir"] + "/tensorboard",
             **network.combined_extractor(config),
         )
+        if config["baseline"]:
+            model.load(config["baseline"])
         for index in range(config["epochs"]):
             checkpoint_callback = CheckpointCallback(
                 save_freq=config["checkpoint_freq"],
@@ -220,6 +222,12 @@ if __name__ == "__main__":
         help="Choose from discrete and continous",
         type=str,
         default="discrete",
+    )
+    parser.add_argument(
+        "--baseline",
+        help="Will load the model given the path",
+        type=str,
+        default=None,
     )
     parser.add_argument(
         "--weights",
