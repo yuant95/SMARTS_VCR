@@ -48,6 +48,7 @@ def get_config(args: argparse.Namespace):
     config["logdir"] = logdir
     print("\nLogdir:", logdir, "\n")
 
+    wandb.tensorboard.patch(root_logdir=str(logdir))
     wandb_run = wandb.init(
         project="SMARTS",
         config=config,

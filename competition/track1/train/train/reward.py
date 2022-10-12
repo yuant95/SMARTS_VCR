@@ -167,8 +167,7 @@ class Reward(gym.Wrapper):
 
         # TODO: how to penalize the length of steps taken? (counts.steps_adjusted )
         # NOTE: This doesn't seem to make sense during training.
-        # return -self._dist_to_goal(agent_obs)
-        return 0.0
+        return -self._dist_to_goal(agent_obs)
 
     def _goal(self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> Dict[str, np.float64]:
