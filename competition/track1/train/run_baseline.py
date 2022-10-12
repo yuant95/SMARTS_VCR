@@ -59,6 +59,7 @@ def main(args: argparse.Namespace):
         raise KeyError(f'Expected \'train\' or \'evaluate\', but got {config["mode"]}.')
     
     config["baseline"] = args.baseline
+    config["weights"] = args.weights
 
     # Make training and evaluation environments.
     envs_train = {}
@@ -181,6 +182,13 @@ if __name__ == "__main__":
         help="Will load the model given the path",
         type=str,
         default=None,
+    )
+    parser.add_argument(
+        "--weights",
+        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        type=float,
+        nargs='+',
+        default=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     )
 
     args = parser.parse_args()
