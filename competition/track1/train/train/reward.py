@@ -7,11 +7,13 @@ from smarts.core.utils.math import signed_dist_to_line
 
 
 class Reward(gym.Wrapper):
-    def __init__(self, env: gym.Env, weights: list):
+    def __init__(self, env: gym.Env):
         super().__init__(env)
+        # TODO: debug code below, need to move weights to parameters
+        weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         self.weights = np.array(weights)
-        if len(weights) != 6:
-            raise Exception("The reward weights must have length of 6 rather than {}".format(len(weights)))
+        if len(self.weights) != 6:
+            raise Exception("The reward weights must have length of 6 rather than {}".format(len(self.weights)))
         self.reward = None
         self.weighted_reward = None
 
