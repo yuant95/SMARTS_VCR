@@ -7,17 +7,17 @@ from smarts.core.utils.math import signed_dist_to_line
 
 
 class Reward(gym.Wrapper):
-    def __init__(self, env: gym.Env, weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]):
+    def __init__(self, env: gym.Env):
         super().__init__(env)
         # TODO: debug code below, need to move weights to parameters
-        self.weights = np.array(weights)
-        if len(self.weights) != 6:
-            raise Exception("The reward weights must have length of 6 rather than {}".format(len(self.weights)))
-        self.reward = None
-        self.weighted_reward = None
+        #self.weights = np.array(weights)
+        #if len(self.weights) != 6:
+        #    raise Exception("The reward weights must have length of 6 rather than {}".format(len(self.weights)))
+        # self.reward = None
+        # self.weighted_reward = None
 
-    # def reset(self, **kwargs):
-    #     return self.env.reset(**kwargs)
+    def reset(self, **kwargs):
+         return self.env.reset(**kwargs)
 
     def step(self, action):
         """Adapts the wrapped environment's step.
@@ -26,7 +26,7 @@ class Reward(gym.Wrapper):
         """
         obs, reward, done, info = self.env.step(action)
         wrapped_reward = self._reward(obs, reward)
-        wrapped_info = self._info(obs, reward, info)
+        #wrapped_info = self._info(obs, reward, info)
 
         for agent_id, agent_done in done.items():
             if agent_id != "__all__" and agent_done == True:
@@ -46,9 +46,9 @@ class Reward(gym.Wrapper):
                     print("Events: ", obs[agent_id]["events"])
                     raise Exception("Episode ended for unknown reason.")
 
-        return obs, wrapped_reward, done, wrapped_info
+        return obs, wrapped_reward, done, info#wrapped_info
 
-    def _reward_ori(
+    def _reward(
         self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64]
     ) -> Dict[str, np.float64]:
         reward = {agent_id: np.float64(0) for agent_id in env_reward.keys()}
@@ -116,7 +116,7 @@ class Reward(gym.Wrapper):
         return info
 
 
-    def _reward(
+    def _reward_advanced(
         self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64]
     ) -> Dict[str, np.float64]:
         reward = {agent_id: np.float64(0) for agent_id in env_reward.keys()}
