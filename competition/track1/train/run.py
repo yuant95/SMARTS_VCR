@@ -12,6 +12,7 @@ from typing import Any, Dict
 import gym
 import stable_baselines3 as sb3lib
 import torch as th
+
 from ruamel.yaml import YAML
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -48,7 +49,7 @@ def get_config(args: argparse.Namespace):
     config["logdir"] = logdir
     print("\nLogdir:", logdir, "\n")
 
-    wandb.tensorboard.patch(root_logdir=str(logdir))
+    # wandb.tensorboard.patch(root_logdir=str(logdir))
     wandb_run = wandb.init(
         project="SMARTS",
         config=config,

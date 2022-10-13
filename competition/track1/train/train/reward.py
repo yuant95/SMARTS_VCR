@@ -15,6 +15,7 @@ class Reward(gym.Wrapper):
         #    raise Exception("The reward weights must have length of 6 rather than {}".format(len(self.weights)))
         # self.reward = None
         # self.weighted_reward = None
+        self.weights = np.array([1.0,1.0, 1.0,1.0, 1.0,1.0])
 
     def reset(self, **kwargs):
          return self.env.reset(**kwargs)
@@ -25,7 +26,8 @@ class Reward(gym.Wrapper):
         Note: Users should not directly call this method.
         """
         obs, reward, done, info = self.env.step(action)
-        wrapped_reward = self._reward(obs, reward)
+        # wrapped_reward = self._reward(obs, reward)
+        wrapped_reward = self._reward_advanced(obs, reward)
         #wrapped_info = self._info(obs, reward, info)
 
         for agent_id, agent_done in done.items():
