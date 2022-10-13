@@ -7,18 +7,17 @@ from smarts.core.utils.math import signed_dist_to_line
 
 
 class Reward(gym.Wrapper):
-    def __init__(self, env: gym.Env):
+    def __init__(self, env: gym.Env, weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]):
         super().__init__(env)
         # TODO: debug code below, need to move weights to parameters
-        weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         self.weights = np.array(weights)
         if len(self.weights) != 6:
             raise Exception("The reward weights must have length of 6 rather than {}".format(len(self.weights)))
         self.reward = None
         self.weighted_reward = None
 
-    def reset(self, **kwargs):
-        return self.env.reset(**kwargs)
+    # def reset(self, **kwargs):
+    #     return self.env.reset(**kwargs)
 
     def step(self, action):
         """Adapts the wrapped environment's step.
@@ -141,6 +140,7 @@ class Reward(gym.Wrapper):
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
         if agent_obs["events"]["collisions"]:
+            print(f"Collided.")
             return - np.float64(10)
         return np.float64(0.0)
 
@@ -158,6 +158,7 @@ class Reward(gym.Wrapper):
     ) -> np.float64:
         score = np.float64(0.0)
         if agent_obs["events"]["wrong_way"]:
+            print(f"Wrong way.")
             score -= np.float64(10)
 
         score -= self._speed_limit(agent_obs)
@@ -176,14 +177,17 @@ class Reward(gym.Wrapper):
         r = 0.0
         # Penalty for driving off road
         if agent_obs["events"]["off_road"]:
+           print(f"Off road.")
            r -= np.float64(10)
 
         # Penalty for driving off route
         if agent_obs["events"]["off_route"]:
+            print(f"Off route.")
             r -= np.float64(10)
 
         # Penalty for driving on road shoulder
         if agent_obs["events"]["on_shoulder"]:
+            print(f"On shoulder")
             r -= np.float64(2)
 
         # Reward for reaching goal

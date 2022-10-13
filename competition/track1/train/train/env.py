@@ -53,8 +53,8 @@ def wrappers_vec(config: Dict[str, Any]):
         lambda env: FormatAction(env=env, space=ActionSpaceType["TargetPose"]),
         Info,
         # Used to shape rewards.
-        Reward,
-        # lambda env: Reward(env=env, weights=config["weights"]), 
+        # Reward,
+        lambda env: Reward(env=env, weights=config["weights"]), 
         # Used to save selected observation parameters for use in DiscreteAction wrapper.
         SaveObs,
         # Used to discretize action space for easier RL training.
