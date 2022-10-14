@@ -150,6 +150,7 @@ def run(
         os.makedirs(save_dir, exist_ok=True)
         time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         model.save(save_dir + ("/model_" + time))
+        wandb.save(save_dir + ("/model_" + time), base_path=save_dir)
         print("\nSaved trained model.\n")
 
     if config["mode"] == "evaluate":
@@ -203,7 +204,7 @@ if __name__ == "__main__":
         "--checkpoint_freq",
         help="Save a model every checkpoint_freq calls to env.step().",
         type=int,
-        default=5_000 ,
+        default=1_000,
     )
     parser.add_argument(
         "--eval_eps",
@@ -215,7 +216,7 @@ if __name__ == "__main__":
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=10_000,
+        default=2_000,
     )
     parser.add_argument(
         "--alg",

@@ -103,11 +103,30 @@ class CustomCallback(BaseCallback):
         using the current policy.
         This event is triggered before collecting new samples.
         """
-        # if we have hit conditions for full eval
+        # just log stochastic info
+        if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
+            wandb.log({'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
+                    'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer])})
 
-        if int(np.floor(self.eval_incr / self.eval_freq)) >= self.current_mod:
-            # if we passed increment threshold then we eval
-            self.current_mod += 1
+        wandb.log({'time_steps': self.num_timesteps,
+                    'updates': self.model._n_updates})
+
+    def _on_step(self) -> bool:
+        """
+        This method will be called by the model after each call to `env.step()`.
+        For child callback (of an `EventCallback`), this will be called
+        when the event is triggered.
+        :return: (bool) If the callback returns False, training is aborted early.
+        """
+        if self.n_calls % self.save_freq == 0:
+            path = os.path.join(self.checkpoint_save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.zip")
+            self.model.save(path)
+            wandb.save(path, base_path=self.checkpoint_save_path)
+            if self.verbose > 1:
+                print(f"Saving model checkpoint to {path}")
+
+        # if we have hit conditions for full eval
+        if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
             # Evaluate the model
             # policy = lambda obs_: self.model.predict(obs_, deterministic=True)[0]
             # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env, STATIC_ARGS['tracks_folder'])
@@ -144,28 +163,6 @@ class CustomCallback(BaseCallback):
                 self.best_mean_reward = mean_reward
                 self.save_model()
 
-        # otherwise just log stochastic info
-        else:
-            if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
-                wandb.log({'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
-                       'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer])})
-
-            wandb.log({'time_steps': self.num_timesteps,
-                       'updates': self.model._n_updates})
-
-    def _on_step(self) -> bool:
-        """
-        This method will be called by the model after each call to `env.step()`.
-        For child callback (of an `EventCallback`), this will be called
-        when the event is triggered.
-        :return: (bool) If the callback returns False, training is aborted early.
-        """
-        if self.n_calls % self.save_freq == 0:
-            path = os.path.join(self.checkpoint_save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.zip")
-            self.model.save(path)
-            wandb.save(path, base_path=self.checkpoint_save_path)
-            if self.verbose > 1:
-                print(f"Saving model checkpoint to {path}")
         return True
 
     def _on_rollout_end(self) -> None:
