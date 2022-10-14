@@ -21,10 +21,13 @@ class CustomCallback(BaseCallback):
         n_eval_episodes: int = 5, 
         eval_freq=10000, 
         log_freq=100, 
+        save_freq = 1000,
         deterministic=True,
         render=False, 
         model_name='sb3_model', 
         model_save_path='./local_save/',
+        checkpoint_save_path='./local_save/',
+        name_prefix="",
         gradient_save_freq = 0, 
         run_id=''
     )-> None:
@@ -34,6 +37,9 @@ class CustomCallback(BaseCallback):
         self.n_eval_episodes = n_eval_episodes
         self.eval_freq = eval_freq
         self.log_freq = log_freq
+        self.save_freq = save_freq
+        self.checkpoint_save_path = checkpoint_save_path
+        self.name_prefix = name_prefix
         self.deterministic = deterministic
         self.render = render
         self.eval_incr = 1
@@ -43,6 +49,7 @@ class CustomCallback(BaseCallback):
         self.model_save_path = model_save_path+str(run_id)
         self.gradient_save_freq = gradient_save_freq
         os.makedirs(self.model_save_path, exist_ok=True)
+        os.makedirs(self.checkpoint_save_path, exist_ok=True)
         self.path = os.path.join(self.model_save_path, model_name+".zip")
         self.current_mod = 1
 
@@ -153,7 +160,12 @@ class CustomCallback(BaseCallback):
         when the event is triggered.
         :return: (bool) If the callback returns False, training is aborted early.
         """
-        self.eval_incr += 1
+        if self.n_calls % self.save_freq == 0:
+            path = os.path.join(self.checkpoint_save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.zip")
+            self.model.save(path)
+            wandb.save(path, base_path=self.checkpoint_save_path)
+            if self.verbose > 1:
+                print(f"Saving model checkpoint to {path}")
         return True
 
     def _on_rollout_end(self) -> None:

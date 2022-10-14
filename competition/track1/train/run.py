@@ -12,6 +12,7 @@ from typing import Any, Dict
 import gym
 import stable_baselines3 as sb3lib
 import torch as th
+
 from ruamel.yaml import YAML
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -48,7 +49,7 @@ def get_config(args: argparse.Namespace):
     config["logdir"] = logdir
     print("\nLogdir:", logdir, "\n")
 
-    wandb.tensorboard.patch(root_logdir=str(logdir))
+    # wandb.tensorboard.patch(root_logdir=str(logdir))
     wandb_run = wandb.init(
         project="SMARTS",
         config=config,
@@ -113,36 +114,40 @@ def run(
             tensorboard_log=config["logdir"] + "/tensorboard",
             **network.combined_extractor(config),
         )
+
         if config["baseline"]:
             model.load(config["baseline"])
-        for index in range(config["epochs"]):
-            checkpoint_callback = CheckpointCallback(
-                save_freq=config["checkpoint_freq"],
-                save_path=config["logdir"] + "/checkpoint",
-                name_prefix=f"{config['alg']}_{index}",
-            )
-            custom_callback = CustomCallback(
-                verbose = 1, 
-                eval_env=envs_eval,
-                n_eval_episodes = config["eval_eps"], 
-                eval_freq=config["eval_freq"],
-                log_freq=100, 
-                deterministic=True,
-                render=False, 
-                model_name='sb3_model', 
-                model_save_path= str(config["logdir"] + "/eval"),
-                gradient_save_freq=0, 
-                run_id=wandb_run.id
-            )
-            model.set_env(envs_train)
-            model.learn(
-                total_timesteps=config["train_steps"],
-                callback=[custom_callback, checkpoint_callback],
-            )
+        # for index in range(config["epochs"]):
+            # checkpoint_callback = CheckpointCallback(
+            #     save_freq=config["checkpoint_freq"],
+            #     save_path=config["logdir"] + "/checkpoint",
+            #     name_prefix=f"{config['alg']}_{index}",
+            # )
+        custom_callback = CustomCallback(
+            verbose = 1, 
+            eval_env=envs_eval,
+            n_eval_episodes = config["eval_eps"], 
+            eval_freq=config["eval_freq"],
+            log_freq=100, 
+            save_freq=config["checkpoint_freq"],
+            deterministic=True,
+            render=False, 
+            model_name='sb3_model', 
+            model_save_path= str(config["logdir"] + "/eval"),
+            checkpoint_save_path=config["logdir"] + "/checkpoint",
+            name_prefix=f"{config['alg']}",
+            gradient_save_freq=0, 
+            run_id=wandb_run.id
+        )
+        model.set_env(envs_train)
+        model.learn(
+            total_timesteps=config["train_steps"],
+            callback=[custom_callback],
+        )
 
         # Save trained model.
         save_dir = config["logdir"] + "/train"
-        save_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(save_dir, exist_ok=True)
         time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         model.save(save_dir + ("/model_" + time))
         print("\nSaved trained model.\n")
@@ -182,17 +187,17 @@ if __name__ == "__main__":
         type=str,
         default=None,
     )
-    parser.add_argument(
-        "--epochs",
-        help=" Number of training loops",
-        type=int,
-        default=5_000,
-    )
+    # parser.add_argument(
+    #     "--epochs",
+    #     help=" Number of training loops",
+    #     type=int,
+    #     default=5_000,
+    # )
     parser.add_argument(
         "--train_steps",
-        help="Training per scenario",
+        help="Total training step",
         type=int,
-        default=10_000,
+        default=100_000,
     )
     parser.add_argument(
         "--checkpoint_freq",
@@ -210,7 +215,7 @@ if __name__ == "__main__":
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=500,
+        default=10_000,
     )
     parser.add_argument(
         "--alg",
