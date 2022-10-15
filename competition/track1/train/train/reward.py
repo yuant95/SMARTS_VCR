@@ -195,8 +195,7 @@ class Reward(gym.Wrapper):
             r += np.float64(30)
 
         # return np.float64(r)
-        min(np.float64(10.0), max(r, np.float64(-10.0))) 
-
+        return min(np.float64(10.0), max(r, np.float64(-10.0))) 
 
     def _dist_to_goal(self, obs: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
         mission = obs["mission"]
