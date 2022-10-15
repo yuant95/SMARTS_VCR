@@ -81,3 +81,68 @@ def _discrete() -> Tuple[Callable[[Dict[str, int]], Dict[str, np.ndarray]], gym.
         return wrapped_obs
 
     return wrapper, space
+
+class Continuous_Action(gym.ActionWrapper):
+    def __init__(self, env: gym.Env):
+        super().__init__(env)
+        self._wrapper, action_space = _continuous()
+
+        self.action_space = gym.spaces.Dict(
+            {agent_id: action_space for agent_id in env.action_space.spaces.keys()}
+        )
+
+    def action(self, act):
+        wrapped_act = {
+            agent_id: self._wrapper(agent_act) for agent_id, agent_act in act.items()
+        }
+        return wrapped_act
+
+
+# def _continuous() -> Tuple[Callable[[np.array], np.array], gym.Space]:
+#     space = gym.spaces.Box(low=-1.0, high=1.0, shape=(3,), dtype=np.float32)
+
+#     def wrapper(model_action):
+#         throttle, brake, steering = model_action
+#         throttle = (throttle + 1) / 2
+#         brake = (brake + 1) / 2
+#         return np.array([throttle, brake, steering], dtype=np.float32)
+
+#     return wrapper, space
+
+def _continuous() -> Tuple[Callable[[Dict[str, int]], Dict[str, np.ndarray]], gym.Space]:
+    space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32) #Use angle and speed
+
+    time_delta = 0.1  # Time, in seconds, between steps.
+    max_angle = 90 / 180 * np.pi # Turning angle in radians
+    max_speed = 90 # Speed in km/h
+
+    def wrapper(
+        action: Dict[str, int], saved_obs: Dict[str, Any]
+    ) -> Dict[str, np.ndarray]:
+        wrapped_obs = {}
+        for agent_id, agent_action in action.items():
+            new_heading = saved_obs[agent_id]["heading"] + agent_action[0] * max_angle
+            new_heading = (new_heading + np.pi) % (2 * np.pi) - np.pi
+
+            magnitude = agent_action[1] * max_speed *time_delta
+            cur_coord = (
+                saved_obs[agent_id]["pos"][0] + 1j * saved_obs[agent_id]["pos"][1]
+            )
+            # Note: On the map, angle is zero at positive y axis, and increases anti-clockwise.
+            #       In np.exp(), angle is zero at positive x axis, and increases anti-clockwise.
+            #       Hence, numpy_angle = map_angle + π/2
+            new_pos = cur_coord + magnitude * np.exp(1j * (new_heading + np.pi / 2))
+            x_coord = np.real(new_pos)
+            y_coord = np.imag(new_pos)
+
+            wrapped_obs.update(
+                {
+                    agent_id: np.array(
+                        [x_coord, y_coord, new_heading, time_delta], dtype=np.float32
+                    )
+                }
+            )
+
+        return wrapped_obs
+
+    return wrapper, space

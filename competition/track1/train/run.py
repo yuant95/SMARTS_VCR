@@ -34,7 +34,6 @@ def get_config(args: argparse.Namespace):
     config_file = yaml.load(
         (Path(__file__).absolute().parent / "config.yaml").read_text()
     )
-
     # Load env config.
     config = config_file["smarts"]
     config.update(vars(args))
@@ -237,11 +236,40 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
-        "--weights",
+        "--w0",
         help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
         type=float,
-        nargs='+',
-        default=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        default=1.0
+    )
+    parser.add_argument(
+        "--w1",
+        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        type=float,
+        default=1.0
+    )
+    parser.add_argument(
+        "--w2",
+        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        type=float,
+        default=1.0
+    )
+    parser.add_argument(
+        "--w3",
+        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        type=float,
+        default=1.0
+    )
+    parser.add_argument(
+        "--w4",
+        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        type=float,
+        default=1.0
+    )
+    parser.add_argument(
+        "--w5",
+        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        type=float,
+        default=1.0
     )
 
     args = parser.parse_args()

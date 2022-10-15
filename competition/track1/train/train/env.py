@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import gym
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from train.action import Action as DiscreteAction
-# from train.action import Action as Continuous_Action
+from train.action import Continuous_Action as Continuous_Action
 from train.info import Info
 from train.observation import Concatenate, FilterObs, SaveObs
 from train.reward import Reward
@@ -54,11 +54,11 @@ def wrappers_vec(config: Dict[str, Any]):
         Info,
         # Used to shape rewards.
         # Reward,
-        lambda env: Reward(env=env, weights=config["weights"]), 
+        lambda env: Reward(env=env, weights=[config["w"+str(i)] for i in range(6)]), 
         # Used to save selected observation parameters for use in DiscreteAction wrapper.
         SaveObs,
         # Used to discretize action space for easier RL training.
-        DiscreteAction ,#if config["action_wrapper"]=="discrete" else Continuous_Action,
+        DiscreteAction if config["action_wrapper"]=="discrete" else Continuous_Action,
         # Used to filter only the selected observation parameters.
         FilterObs,
         # Used to stack sequential observations to include temporal information. 
