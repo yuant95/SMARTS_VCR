@@ -91,10 +91,9 @@ class Continuous_Action(gym.ActionWrapper):
             {agent_id: action_space for agent_id in env.action_space.spaces.keys()}
         )
 
-    def action(self, act):
-        wrapped_act = {
-            agent_id: self._wrapper(agent_act) for agent_id, agent_act in act.items()
-        }
+    def action(self, action):
+
+        wrapped_act = self._wrapper(action=action, saved_obs=self.saved_obs)
         return wrapped_act
 
 
@@ -114,7 +113,7 @@ def _continuous() -> Tuple[Callable[[Dict[str, int]], Dict[str, np.ndarray]], gy
 
     time_delta = 0.1  # Time, in seconds, between steps.
     max_angle = 90 / 180 * np.pi # Turning angle in radians
-    max_speed = 90 # Speed in km/h
+    max_speed = 28 # Speed in km/h
 
     def wrapper(
         action: Dict[str, int], saved_obs: Dict[str, Any]
