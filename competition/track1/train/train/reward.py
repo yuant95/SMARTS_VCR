@@ -141,18 +141,19 @@ class Reward(gym.Wrapper):
     ) -> np.float64:
         if agent_obs["events"]["collisions"]:
             print(f"Collided.")
-            return - np.float64(10)
+            return - np.float64(50)
         return np.float64(0.0)
 
     def _humanness(
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
-        return min(np.float64(10.0), max( (self._dist_to_obstacles(agent_obs)
-            - self._jerk_angular(agent_obs)
-            - self._jerk_linear(agent_obs)
-            - self._lane_center_offset(agent_obs)), np.float64(-10.0))
-        ) 
-
+        # return min(np.float64(10.0), max( (self._dist_to_obstacles(agent_obs)
+        #     - self._jerk_angular(agent_obs)
+        #     - self._jerk_linear(agent_obs)
+        #     - self._lane_center_offset(agent_obs)), np.float64(-10.0))
+        # )
+        return self._dist_to_obstacles(agent_obs) - self._jerk_angular(agent_obs) - self._jerk_linear(agent_obs) - self._lane_center_offset(agent_obs)
+    
     def _rules(
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
@@ -163,14 +164,16 @@ class Reward(gym.Wrapper):
 
         score -= self._speed_limit(agent_obs)
 
-        return min(np.float64(10.0), max(score, np.float64(-10.0))) 
+        # return min(np.float64(10.0), max(score, np.float64(-10.0))) 
+        return score
 
     def _time(self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> Dict[str, np.float64]:
 
         # TODO: how to penalize the length of steps taken? (counts.steps_adjusted )
         # NOTE: This doesn't seem to make sense during training.
-        return min(np.float64(10.0), max(-self._dist_to_goal(agent_obs), np.float64(-10.0))) 
+        # return min(np.float64(10.0), max(-self._dist_to_goal(agent_obs), np.float64(-10.0))) 
+        return -self._dist_to_goal(agent_obs)
 
     def _goal(self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> Dict[str, np.float64]:
@@ -178,24 +181,33 @@ class Reward(gym.Wrapper):
         # Penalty for driving off road
         if agent_obs["events"]["off_road"]:
            print(f"Off road.")
-           r -= np.float64(10)
+           r -= np.float64(50)
 
         # Penalty for driving off route
         if agent_obs["events"]["off_route"]:
             print(f"Off route.")
-            r -= np.float64(10)
+            r -= np.float64(50)
 
         # Penalty for driving on road shoulder
         if agent_obs["events"]["on_shoulder"]:
             print(f"On shoulder")
             r -= np.float64(2)
 
+        # Penalty for reach max episode steps
+        if agent_obs["events"]["reached_max_episode_steps"]:
+            r -= np.float64(0.5)
+        else:
+            r += np.float64(0.5)
+
+        if agent_obs["events"]["not_moving"]:
+            r -= np.float64(0.5)
+
         # Reward for reaching goal
         if agent_obs["events"]["reached_goal"]:
             r += np.float64(30)
 
-        # return np.float64(r)
-        return min(np.float64(10.0), max(r, np.float64(-10.0))) 
+        return np.float64(r)
+        # return min(np.float64(10.0), max(r, np.float64(-10.0))) 
 
     def _dist_to_goal(self, obs: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
         mission = obs["mission"]

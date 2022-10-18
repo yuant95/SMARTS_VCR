@@ -197,7 +197,7 @@ if __name__ == "__main__":
         "--train_steps",
         help="Total training step",
         type=int,
-        default=100_000,
+        default=1_000_000,
     )
     parser.add_argument(
         "--checkpoint_freq",
@@ -233,43 +233,44 @@ if __name__ == "__main__":
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        default=None,
+        default=""
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2022_10_16_00_37_56/eval3vpgen07/sb3_model.zip",
     )
     parser.add_argument(
         "--w0",
-        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        help="Complete: -50 for collision.",
         type=float,
-        default=1.0
+        default= 1.0
     )
     parser.add_argument(
         "--w1",
-        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        help="Humanness: jerk angular + jerk linear + lane center offset",
         type=float,
-        default=1.0
+        default= 0.01
     )
     parser.add_argument(
         "--w2",
-        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        help="Time: -distance to goal",
         type=float,
-        default=1.0
+        default= 0.01
     )
     parser.add_argument(
         "--w3",
-        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        help="Rules: wrong way + speed limit.",
         type=float,
-        default=1.0
+        default= 1.0
     )
     parser.add_argument(
         "--w4",
-        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        help="Goal: reached goal reward + penalize off road/ off route/ on shoulder.",
         type=float,
         default=1.0
     )
     parser.add_argument(
         "--w5",
-        help="The weights for reward category Complete, Humanness, Time, Rules, Goal, Distant.",
+        help="Traveled distance.",
         type=float,
-        default=1.0
+        default=0.05
     )
 
     args = parser.parse_args()
