@@ -112,7 +112,8 @@ def file_md5_hash(file_path: str) -> str:
 def smarts_log_dir() -> str:
     """Retrieves the smarts logging directory."""
     ## Following should work for linux and macos
-    smarts_dir = os.path.join(os.path.expanduser("~"), ".smarts")
+    # smarts_dir = os.path.join(os.path.expanduser("~"), ".smarts")
+    smarts_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), ".smarts")
     os.makedirs(smarts_dir, exist_ok=True)
     return smarts_dir
 
