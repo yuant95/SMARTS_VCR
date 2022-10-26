@@ -124,7 +124,7 @@ def evaluate(config):
             wrapper_ctors=submitted_wrappers,
         )
 
-    score = Score()
+    # score = Score()
     forkserver_available = "forkserver" in mp.get_all_start_methods()
     start_method = "forkserver" if forkserver_available else "spawn"
     mp_context = mp.get_context(start_method)
@@ -135,16 +135,15 @@ def evaluate(config):
             )
             for env_name, env_ctor in env_ctors.items()
         ]
-        for future in as_completed(futures):
-            counts, costs = future.result()
-            score.add(counts, costs)
+        # for future in as_completed(futures):
+        #     counts, costs = future.result()
+        #     score.add(counts, costs)
     # for env_name, env_ctor in env_ctors.items():
     #     counts, costs = _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
     #     score.add(counts, costs)
 
-    rank = score.compute()
-    logger.info("\nOverall Rank: %s\n", rank)
-    logger.info("\nFinished evaluating.\n")
+    # rank = score.compute()
+    logger.info("\nFinished Running.\n")
 
     return rank
 
