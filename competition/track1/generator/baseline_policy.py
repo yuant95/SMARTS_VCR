@@ -1,5 +1,8 @@
+from cmath import inf
 from pathlib import Path
 from typing import Any, Dict
+
+from wandb import agent
 
 class BasePolicy:
     def act(self, obs: Dict[str, Any]):
@@ -171,16 +174,19 @@ class Policy(BasePolicy):
             raise Exception("Running out of way points.")
 
     def get_next_goal_pos(self, agent_obs):
-        import numpy as np
-        time_delta = 0.1
+        # import numpy as np
         closest_wp, wp_index = self.get_closest_waypoint(agent_obs=agent_obs)
-        wp_head = agent_obs["waypoints"]["heading"][0][wp_index]
         speed_limit = agent_obs["waypoints"]["speed_limit"][0][wp_index]
+        next_goal_pos, next_goal_heading = self.get_next_limited_action(agent_obs["ego"]["pos"], closest_wp, speed_limit)
+        
+        return next_goal_pos, next_goal_heading 
 
-        current_pos = agent_obs["ego"]["pos"]
+    def get_next_limited_action(self, ego_pos, pos, speed_limit):
+        import numpy as np
 
+        time_delta = 0.1
         #Check whether going to next waypoint exceed the speed limit
-        goal_vec = closest_wp - current_pos
+        goal_vec = pos - ego_pos
         goal_dist = np.linalg.norm(goal_vec)
         goal_speed = goal_dist / time_delta
         goal_dir = goal_vec/ goal_dist
@@ -189,26 +195,47 @@ class Policy(BasePolicy):
         # prop = self._pos_space.sample()
         prop = 1.0
 
-
         if goal_speed > speed_limit:
-            next_goal_pos = current_pos + speed_limit * goal_dir * time_delta * prop
+            next_goal_pos = ego_pos + speed_limit * goal_dir * time_delta * prop
 
         else: 
-            next_goal_pos = current_pos + goal_speed * goal_dir * time_delta * prop
+            next_goal_pos = ego_pos + goal_speed * goal_dir * time_delta * prop
         
         next_goal_heading = np.arctan2(-goal_dir[0], goal_dir[1])
         next_goal_heading = (next_goal_heading + np.pi) % (2 * np.pi) - np.pi
         
 
         return next_goal_pos, next_goal_heading
-    
-    # def get_closest_waypoint_to_goal(self, agent_obs, wp_index):
-    #     import numpy as np
-    #     goal = agent_obs["mission"]
 
-    #     dist_to_goal = []
-    #     # check whether there are other lane waypoints
-    #     wps = agent_obs["waypoints"]
-    #     for lane in wps["lane_width"]:
-    #         # Check whether this set of waypoints exists
-    #         if np.flatnonzero(lane)[-1] > 0:
+    def get_each_lane_last_waypoint(self, agent_obs):
+        import numpy as np
+
+        wps = agent_obs["waypoints"]
+        last_waypoints = []
+        for path in wps["lane_width"]:
+            s = np.flatnonzero(path > 0)
+            if s.size != 0:
+                last_waypoints.append(s[-1])
+            else:
+                last_waypoints.append(-1)
+
+        
+        return last_waypoints
+
+    def get_cloest_path_index_to_goal(self, agent_obs, last_waypoints):
+        import numpy as np
+
+        goal_pos = agent_obs["mission"]["goal_pos"]
+        wps = agent_obs["waypoints"]
+
+        last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints) if point_index != -1]
+        dist_to_goal = [np.linalg.norm(wp - goal_pos) for wp in last_waypoints_pos]
+        path_index = np.argmin(dist_to_goal)
+
+        return path_index
+
+
+
+
+
+            
