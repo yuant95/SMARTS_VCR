@@ -17,13 +17,16 @@ import gym
 import cloudpickle
 
 from copy_data import CopyData, DataStore
-from policy import Policy, submitted_wrappers
+# from policy import Policy, submitted_wrappers
+from baseline_policy import Policy, submitted_wrappers
+
 from utils import load_config, merge_config, validate_config, write_output
 
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221026_2"
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221026_2")
+
 
 _EVALUATION_CONFIG_KEYS = {
     "phase",
@@ -202,7 +205,7 @@ def _worker(input: bytes) -> None:
             observations, rewards, dones, infos = env.step(actions)
             counter = event_counter(counter, observations)
             df = save_data(action=actions, old_observation=old_observations, observation=observations, df=df, out_folder=out_folder, counter=counter)
-            
+
         df.to_pickle(df_file)
 
     env.close()
