@@ -23,7 +23,7 @@ from utils import load_config, merge_config, validate_config, write_output
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221024"
+OUT_FOLDER = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221026_2"
 
 _EVALUATION_CONFIG_KEYS = {
     "phase",
@@ -38,7 +38,7 @@ _DEFAULT_EVALUATION_CONFIG = dict(
     seed=42,
     scenarios=[
         "1_to_2lane_left_turn_c",
-        # "1_to_2lane_left_turn_t",
+        "1_to_2lane_left_turn_t",
         # "3lane_merge_multi_agent",
         # "3lane_merge_single_agent",
         # "3lane_cruise_multi_agent",
@@ -53,8 +53,8 @@ _SUBMISSION_CONFIG_KEYS = {
     "img_pixels",
 }
 _DEFAULT_SUBMISSION_CONFIG = dict(
-    img_meters=64,
-    img_pixels=128,
+    img_meters=50,
+    img_pixels=256,
 )
 
 def _make_env(
@@ -105,7 +105,7 @@ def run(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=False,
+        sumo_headless=True,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:
@@ -131,15 +131,15 @@ def run(config):
     forkserver_available = "forkserver" in mp.get_all_start_methods()
     start_method = "forkserver" if forkserver_available else "spawn"
     mp_context = mp.get_context(start_method)
-    # with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
-    #     futures = [
-    #         pool.submit(
-    #             _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
-    #         )
-    #         for env_name, env_ctor in env_ctors.items()
-    #     ]
-    for env_name, env_ctor in env_ctors.items():
-        _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
+    with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
+        futures = [
+            pool.submit(
+                _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
+            )
+            for env_name, env_ctor in env_ctors.items()
+        ]
+    # for env_name, env_ctor in env_ctors.items():
+    #     _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
 
 
     # rank = score.compute()
@@ -183,9 +183,15 @@ def _worker(input: bytes) -> None:
         "on_shoulder": 0,
         "wrong_way": 0,
         "off_route": 0,
+        "safe": 0
     }
 
-    df = pd.DataFrame()
+    df_file = os.path.join(out_folder, "df_{}.pkl".format(env_name))
+    if os.path.exists(df_file):
+        df = pd.read_pickle(df_file)
+    else:
+        df = pd.DataFrame()
+
     # for _ in range(eval_episodes):
     while any(c < 100 for c in counter.values() ):
         observations = env.reset()
@@ -194,13 +200,13 @@ def _worker(input: bytes) -> None:
             old_observations = observations
             actions = policy.act(observations)
             observations, rewards, dones, infos = env.step(actions)
-            event_counter(counter, observations)
-            df = save_data(action=actions, old_observation=old_observations, observation=observations, df=df, out_folder=out_folder)
+            counter = event_counter(counter, observations)
+            df = save_data(action=actions, old_observation=old_observations, observation=observations, df=df, out_folder=out_folder, counter=counter)
             
-        df.to_csv(os.path.join(out_folder, "df_{}.csv".format(env_name)), index=True)
+        df.to_pickle(df_file)
 
     env.close()
-    df.to_csv(os.path.join(out_folder, "df_{}.csv".format(env_name)), index=True)
+    df.to_pickle(df_file)
     logger.info("\nFinished evaluating env %s.\n", env_name)
     
     return None
@@ -217,20 +223,36 @@ def event_counter(counter, observation):
             counter["wrong_way"] += 1
         elif agent_obs["events"]["off_route"]:
             counter["off_route"] += 1
+        else:
+            counter["safe"] += 1
 
     return counter
 
-def save_data(action, old_observation, observation, df, out_folder):
+def save_data(action, old_observation, observation, df, out_folder, counter):
     
     for agent_id, agent_obs in observation.items():
         old_agent_obs = old_observation[agent_id]
+
+        waypoints = old_agent_obs["waypoints"]["pos"][0][:5]
+        waypoints[:, -1] = old_agent_obs["waypoints"]["heading"][0][:5]
+        ego_pos = old_agent_obs["ego"]["pos"]
+        ego_pos[-1] = old_agent_obs["ego"]["heading"]
+
         data = {
-            "action":[action[agent_id]],
-            "ego_pos": [old_agent_obs["ego"]["pos"]],
-            "egp_heading": [old_agent_obs["ego"]["heading"]],
-            "way_points_pos": [old_agent_obs["waypoints"]["pos"][0]],
-            "way_points_heading": [old_agent_obs["waypoints"]["heading"][0]]
+            "action":[action[agent_id][:3]],
+            "ego_pos": [ego_pos],
+            # "ego_pos": [old_agent_obs["ego"]["pos"]],
+            # "egp_heading": [old_agent_obs["ego"]["heading"]],
+            # "waypoints_pos": [old_agent_obs["waypoints"]["pos"][0][:10]],
+            # "waypoints_heading": [old_agent_obs["waypoints"]["heading"][0][:10]],
+            "waypoints": [waypoints.flatten()],
+            "waypoints_lane_width": [old_agent_obs["waypoints"]["lane_width"][0][:5]]
         }
+
+        # Skip when waypoints is less than 5
+        mask = [i for i,v in enumerate(data["waypoints_lane_width"][0]) if v > 0.0]
+        if mask[-1] < 4:
+            break
 
         if agent_obs["events"]["collisions"]:
             data["event"] = "collision"
@@ -243,7 +265,10 @@ def save_data(action, old_observation, observation, df, out_folder):
         elif agent_obs["events"]["off_route"]:
             data["event"] = "off_route"
         else:
-            break
+            if counter["safe"] > 300:
+                break
+            else:
+                data["event"] = "safe"
         
         rgb = old_agent_obs["rgb"]
         image_file_name = save_image(rgb, agent_id, out_folder)

@@ -203,18 +203,13 @@ class Policy(BasePolicy):
 
         return next_goal_pos, next_goal_heading
     
-    def get_closest_waypoint_to_goal(self, agent_obs, wp_index):
-        import numpy as np
-        goal = agent_obs["mission"]
+    # def get_closest_waypoint_to_goal(self, agent_obs, wp_index):
+    #     import numpy as np
+    #     goal = agent_obs["mission"]
 
-        dist_to_goal = []
-        # check whether there are other lane waypoints
-        wps = agent_obs["waypoints"]
-        for lane in wps["lane_width"]:
-            # Check whether this set of waypoints exists
-            if np.flatnonzero(lane)[-1] > 0:
-                
-
-
-
-        
+    #     dist_to_goal = []
+    #     # check whether there are other lane waypoints
+    #     wps = agent_obs["waypoints"]
+    #     for lane in wps["lane_width"]:
+    #         # Check whether this set of waypoints exists
+    #         if np.flatnonzero(lane)[-1] > 0:
