@@ -3,11 +3,18 @@ import os
 from custom_dataset import CustomImageDataset
 from mnn import NeuralNetwork
 import wandb
+from datetime import datetime
+from pathlib import Path
 
 # load dataset 
 TRAINING_DATA = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221026_2/1_to_2lane_left_turn_t (copy)"
 annotations_file = os.path.join(TRAINING_DATA, "df_1_to_2lane_left_turn_t.pkl")
 img_dir = TRAINING_DATA
+
+time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+logdir = Path(__file__).absolute().parents[0] / "logs" / time
+logdir.mkdir(parents=True, exist_ok=True)
+
 config = {
     "training_data": TRAINING_DATA, 
     "learning_rate": 0.01,
@@ -29,10 +36,11 @@ loss_fn = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(),
   lr=config["learning_rate"])
 
-n_epochs = 1000
+n_epochs = 10000
 
 for epoch in range(1, n_epochs+1):
     loss_train = 0.0
+
     for imgs, features, label in data_loader:
         output = model(imgs, features.float())
 
@@ -49,3 +57,14 @@ for epoch in range(1, n_epochs+1):
         loss_train += loss.item()
 
         wandb.log({'epoch': epoch, 'loss': loss_train})
+
+    if epoch%1000 == 0: 
+        time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        path = str(logdir) + ("/model_" + time)
+        torch.save(model, path)
+        wandb.save(path, base_path=path)
+
+time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+path = str(logdir) + ("/model_" + time)
+torch.save(model, path)
+wandb.save(path, base_path=path)
