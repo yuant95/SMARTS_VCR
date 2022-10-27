@@ -17,8 +17,9 @@ logdir.mkdir(parents=True, exist_ok=True)
 
 config = {
     "training_data": TRAINING_DATA, 
-    "learning_rate": 0.01,
-    "batch_size": 100
+    "learning_rate": 3e-4,
+    "batch_size": 100,
+    "n_epoch": 2000,
 }
 
 wandb_run = wandb.init(
@@ -28,20 +29,27 @@ wandb_run = wandb.init(
     )
 config = wandb_run.config
 
+if torch.cuda.is_available():  
+  dev = "cuda:0" 
+else:  
+  dev = "cpu"  
+device = torch.device(dev)  
+
 dataset = CustomImageDataset(annotations_file, img_dir)
 data_loader = torch.utils.data.DataLoader(dataset, batch_size=config["batch_size"],
         shuffle=True, drop_last=True)
 model = NeuralNetwork()
+model.to(device)
 loss_fn = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(),
-  lr=config["learning_rate"])
+optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
 
-n_epochs = 10000
-
-for epoch in range(1, n_epochs+1):
+for epoch in range(1, config["n_epoch"]+1):
     loss_train = 0.0
 
     for imgs, features, label in data_loader:
+        imgs = imgs.to(device)
+        features = features.to(device)
+        label = label.to(device)
         output = model(imgs, features.float())
 
         loss = loss_fn(output, label)
@@ -58,7 +66,7 @@ for epoch in range(1, n_epochs+1):
 
         wandb.log({'epoch': epoch, 'loss': loss_train})
 
-    if epoch%1000 == 0: 
+    if epoch%200 == 0: 
         time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         path = str(logdir) + ("/model_" + time)
         torch.save(model, path)
