@@ -1,6 +1,7 @@
 from cmath import inf
 from pathlib import Path
 from typing import Any, Dict
+from torch import ne
 
 from wandb import agent
 
@@ -57,10 +58,14 @@ class Policy(BasePolicy):
         """
         import gym
         import numpy as np
+        import torch
 
         covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
+        model_path = Path(__file__).absolute().parents[0] / "best_model"
+        self.model = torch.load(model_path)
+        self.model.eval()
 
     def act(self, obs: Dict[str, Any]):
         """Act function to be implemented by user.
@@ -77,9 +82,9 @@ class Policy(BasePolicy):
         for agent_id, agent_obs in obs.items():
             # action = self._action_space.sample()
             # wrapped_act.update({agent_id: action})
-            next_pose, next_heading = self.get_next_goal_pos(agent_obs)
+            action = self.get_next_goal_pos(agent_obs)
             action = np.array(
-                        [next_pose[0], next_pose[1], next_heading, time_delta], dtype=np.float32
+                        [action[0], action[1], action[2], time_delta], dtype=np.float32
                     )
             wrapped_act.update({agent_id: action})
 
@@ -172,8 +177,15 @@ class Policy(BasePolicy):
 
         speed_limit = agent_obs["waypoints"]["speed_limit"][next_path_index][wp_index]
         next_goal_pos, next_goal_heading = self.get_next_limited_action(agent_obs["ego"]["pos"], closest_wp, speed_limit)
+
+
+        action = [next_goal_pos[0], next_goal_pos[1], next_goal_heading]
+
+        action_samples = self.get_action_samples(20, action, agent_obs["ego"]["pos"])
+
+        action = self.get_safe_scores(agent_obs, action_samples, next_path_index)
         
-        return next_goal_pos, next_goal_heading 
+        return action 
 
     def get_next_limited_action(self, ego_pos, pos, speed_limit):
         import numpy as np
@@ -231,6 +243,63 @@ class Policy(BasePolicy):
         path_index = np.argmin(dist_to_goal)
 
         return path_index
+
+    def get_action_samples(self, n_samples, action, current_pos):
+        import numpy as np
+        goal_dir = action[:2] - current_pos[:2]
+
+        samples = []
+        for i in range(n_samples):
+            prop = self._pos_space.sample()
+            sample_action = current_pos[:2] + prop * goal_dir[:2]
+            samples.append([sample_action[0], sample_action[1], action[2]])
+
+        return np.array(samples)
+
+    def get_safe_scores(self, agent_obs, actions, path_index):
+        import torch
+        import torchvision.transforms as transforms
+        import numpy as np
+        inputs = self.get_model_input(agent_obs, actions, path_index)
+
+        n_samples = inputs.shape[0]
+
+        to_tensor = transforms.ToTensor()
+        imgs = to_tensor(agent_obs["rgb"]).unsqueeze(0).repeat(n_samples, 1, 1, 1)
+
+        outputs = self.model(imgs, inputs)
+        sm = torch.nn.Softmax()
+        prob = sm(outputs) 
+
+        safe_choice_prob = sm(prob[:, -5])
+        indices = [i for i in range(len(actions))]
+        final_action_index = np.random.choice(indices, 1, p=safe_choice_prob.detach().numpy())
+
+        return actions[final_action_index[0]]
+
+        # return prob
+
+    def get_model_input(self, agent_obs, actions, path_index):
+        import numpy as np
+        import torch
+        waypoints = agent_obs["waypoints"]["pos"][path_index][:5]
+        waypoints[:, -1] = agent_obs["waypoints"]["heading"][path_index][:5]
+        ego_pos = agent_obs["ego"]["pos"]
+        ego_pos[-1] = agent_obs["ego"]["heading"]
+
+        inputs = []
+        for action in actions:
+            input = []
+            input.extend(action[:3])
+            input.extend(ego_pos)
+            input.extend(waypoints.flatten())
+            inputs.append(input)
+
+        inputs = torch.from_numpy(np.array(inputs))
+        inputs = inputs.type(torch.FloatTensor)
+
+        return inputs
+        
 
 
 

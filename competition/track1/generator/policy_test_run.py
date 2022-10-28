@@ -108,7 +108,7 @@ def run(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=False,
+        sumo_headless=True,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:
