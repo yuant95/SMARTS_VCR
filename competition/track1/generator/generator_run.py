@@ -41,7 +41,7 @@ _DEFAULT_EVALUATION_CONFIG = dict(
     seed=42,
     scenarios=[
         "1_to_2lane_left_turn_c",
-        "1_to_2lane_left_turn_t",
+        # "1_to_2lane_left_turn_t",
         # "3lane_merge_multi_agent",
         # "3lane_merge_single_agent",
         # "3lane_cruise_multi_agent",

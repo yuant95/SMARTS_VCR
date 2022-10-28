@@ -48,67 +48,6 @@ def submitted_wrappers():
 
     return wrappers
 
-
-class TrainPolicy(BasePolicy):
-    """Policy class to be submitted by the user. This class will be loaded
-    and tested during evaluation."""
-
-    def __init__(self):
-        """All policy initialization matters, including loading of model, is
-        performed here. To be implemented by the user.
-        """
-
-        import stable_baselines3 as sb3lib
-        import network
-
-        model_path = Path(__file__).absolute().parents[0] / "best_model.zip"
-        self.model = sb3lib.PPO.load(model_path)
-
-    def act(self, obs: Dict[str, Any]):
-        """Act function to be implemented by user.
-
-        Args:
-            obs (Dict[str, Any]): A dictionary of observation for each ego agent step.
-
-        Returns:
-            Dict[str, Any]: A dictionary of actions for each ego agent.
-        """
-        wrapped_act = {}
-        for agent_id, agent_obs in obs.items():
-            action, _ = self.model.predict(observation=agent_obs, deterministic=True)
-            wrapped_act.update({agent_id: action})
-
-        return wrapped_act
-
-
-class RandomPolicy(BasePolicy):
-    """A sample policy with random actions. Note that only the class named `Policy`
-    will be tested during evaluation."""
-
-    def __init__(self):
-        """All policy initialization matters, including loading of model, is
-        performed here. To be implemented by the user.
-        """
-        import gym
-
-        self._action_space = gym.spaces.Discrete(4)
-
-    def act(self, obs: Dict[str, Any]):
-        """Act function to be implemented by user.
-
-        Args:
-            obs (Dict[str, Any]): A dictionary of observation for each ego agent step.
-
-        Returns:
-            Dict[str, Any]: A dictionary of actions for each ego agent.
-        """
-        wrapped_act = {}
-        for agent_id, agent_obs in obs.items():
-            action = self._action_space.sample()
-            wrapped_act.update({agent_id: action})
-
-        return wrapped_act
-
 class Policy(BasePolicy):
     """A policy directly calculate action to the next waypoint."""
 
@@ -146,37 +85,86 @@ class Policy(BasePolicy):
 
         return wrapped_act
 
-    def get_closest_waypoint(self, agent_obs):
+    def get_current_waypoint_path_index(self, agent_obs):
+        ego_lane = agent_obs["ego"]["lane_index"]
+
+        waypoints_lane_indices = agent_obs["waypoints"]["lane_index"]
+
+        for index, path in enumerate(waypoints_lane_indices):
+            last_waypoint_index = self.get_last_waypoint_index(agent_obs["waypoints"]["lane_width"][index])
+
+            if last_waypoint_index:
+                if ego_lane in path[:last_waypoint_index+1]:
+                    return index
+        
+        raise Exception("ego car is in lane {}, and no way points found for this lane.".format(ego_lane))
+
+    def get_next_waypoint(self, agent_obs, wps_path_index):
         # import numpy as np
         from smarts.core.utils.math import signed_dist_to_line  
         import numpy as np
 
         ego = agent_obs["ego"]
-        waypoint_paths = agent_obs["waypoints"]
-        # wps = [path[0] for path in waypoint_paths]
-        wps = waypoint_paths["pos"][0]
+        ego_head = ego["heading"]
 
-        # Distance of vehicle from center of lane
-        dist_wps = [np.linalg.norm(wp - ego["pos"]) for wp in wps]
-        wp_index = np.argmin(dist_wps)
-        closest_wp = wps[wp_index]
+        wps = agent_obs["waypoints"]["pos"][wps_path_index]
 
-        wp_heading = waypoint_paths["heading"][0][wp_index]
-        angle = (wp_heading + np.pi * 0.5) % (2 * np.pi)
-        heading_dir_vec =  np.array((np.cos(angle), np.sin(angle)))
-        signed_dist_from_center = signed_dist_to_line(ego["pos"][:2], closest_wp[:2], heading_dir_vec)
+        # Distance of vehicle from way points
+        vec_wps = [wp - ego["pos"] for wp in wps]
+        dist_wps = [np.linalg.norm(vec_wp) for vec_wp in vec_wps]
+        # wp_index = np.argmin(dist_wps)
+        # closest_wp = wps[wp_index]
 
-        if signed_dist_from_center > 0.5:
-            return closest_wp, wp_index
-        elif (wp_index + 1) < len(wps):
-            return wps[wp_index+1], wp_index+1
-        else:
-            raise Exception("Running out of way points.")
+        # Heading angle of each waypoints
+        dir_wps = [np.array(vec_wps[i]) / (dist_wps[i]+0.00001) for i in range(len(vec_wps))]
+        head_wps = np.array([np.arctan2(-dir_wp[0], dir_wp[1]) - ego_head for dir_wp in dir_wps])
+        head_wps = (head_wps + np.pi) % (2 * np.pi) - np.pi 
+        
+        # Find the next way points given that the heading is smaller than 45 degree
+        max_angle = 35 / 180 * np.pi
+
+        last_waypoint_index = self.get_last_waypoint_index(agent_obs["waypoints"]["lane_width"][wps_path_index])
+
+        for i in range(last_waypoint_index+1):
+            if dist_wps[i] > 0.5:
+                if abs(head_wps[i]) <= max_angle:
+                    return wps[i], i
+
+                # wp_heading = agent_obs["waypoints"]["heading"][wps_path_index][i]
+                # angle = (wp_heading + np.pi * 0.5) % (2 * np.pi)
+                # heading_dir_vec =  np.array((np.cos(angle), np.sin(angle)))
+                # signed_dist_from_center = signed_dist_to_line(ego["pos"][:2], wps[i][:2], heading_dir_vec)
+
+                # if signed_dist_from_center > 0.1 and dist_wps[i] > 1.0:
+                # if dist_wps[i] > 1.0:
+                #     return wps[i], i
+        
+        return wps[last_waypoint_index], last_waypoint_index
 
     def get_next_goal_pos(self, agent_obs):
-        # import numpy as np
-        closest_wp, wp_index = self.get_closest_waypoint(agent_obs=agent_obs)
-        speed_limit = agent_obs["waypoints"]["speed_limit"][0][wp_index]
+        import numpy as np
+
+        current_path_index = self.get_current_waypoint_path_index(agent_obs)
+        goal_path_index = self.get_cloest_path_index_to_goal(agent_obs)
+
+        # If the goal path index is 2 lane away, we only switch 1 lane at a time
+        if abs(goal_path_index - current_path_index) > 1:
+            next_path_index = current_path_index + np.sign(goal_path_index - current_path_index)
+        else:
+            next_path_index = goal_path_index
+
+        # Get the next closest waypoints on the next path we decided
+        closest_wp, wp_index = self.get_next_waypoint(agent_obs=agent_obs, wps_path_index=next_path_index)
+
+        # TODO: check whether this closest waypoint is feasible
+        # 1. The furthest it can get within speed limit
+        # 2. Any potential collision? 
+        #         - whether the trajectory will cross other neighbor's trajectory
+        #         - whether the next loaction maintain the safe distance of the other car
+        # 3. If collision, then cut the travel distance to half, and check again, recursively till the speed ~= 0
+
+
+        speed_limit = agent_obs["waypoints"]["speed_limit"][next_path_index][wp_index]
         next_goal_pos, next_goal_heading = self.get_next_limited_action(agent_obs["ego"]["pos"], closest_wp, speed_limit)
         
         return next_goal_pos, next_goal_heading 
@@ -208,33 +196,35 @@ class Policy(BasePolicy):
         return next_goal_pos, next_goal_heading
 
     def get_each_lane_last_waypoint(self, agent_obs):
-        import numpy as np
-
         wps = agent_obs["waypoints"]
         last_waypoints = []
         for path in wps["lane_width"]:
-            s = np.flatnonzero(path > 0)
-            if s.size != 0:
-                last_waypoints.append(s[-1])
-            else:
-                last_waypoints.append(-1)
-
+            last_waypoints.append(self.get_last_waypoint_index(path))
         
         return last_waypoints
 
-    def get_cloest_path_index_to_goal(self, agent_obs, last_waypoints):
+    def get_last_waypoint_index(self, waypoint_lane_width):
+        import numpy as np
+        s = np.flatnonzero(waypoint_lane_width > 0)
+        if s.size != 0:
+            return s[-1]
+        else:
+            return -1
+
+    def get_cloest_path_index_to_goal(self, agent_obs):
         import numpy as np
 
         goal_pos = agent_obs["mission"]["goal_pos"]
         wps = agent_obs["waypoints"]
+        wps_lane_width = wps["lane_width"]
+        s = [ np.flatnonzero(wps_lane_width[i] > 0.1) for i in range(len(wps_lane_width))]
+        last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
 
-        last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints) if point_index != -1]
+        last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints_index) if point_index >= 0 ]
         dist_to_goal = [np.linalg.norm(wp - goal_pos) for wp in last_waypoints_pos]
         path_index = np.argmin(dist_to_goal)
 
         return path_index
-
-
 
 
 
