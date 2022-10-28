@@ -122,22 +122,28 @@ class Policy(BasePolicy):
         
         # Find the next way points given that the heading is smaller than 45 degree
         max_angle = 35 / 180 * np.pi
+        switch_lane_max_angle = 20 / 180 * np.pi
 
         last_waypoint_index = self.get_last_waypoint_index(agent_obs["waypoints"]["lane_width"][wps_path_index])
 
         for i in range(last_waypoint_index+1):
-            if dist_wps[i] > 0.5:
-                if abs(head_wps[i]) <= max_angle:
+
+            wp_heading = agent_obs["waypoints"]["heading"][wps_path_index][i]
+            angle = (wp_heading + np.pi * 0.5) % (2 * np.pi)
+            heading_dir_vec =  np.array((np.cos(angle), np.sin(angle)))
+            signed_dist_from_center = signed_dist_to_line(ego["pos"][:2], wps[i][:2], heading_dir_vec)
+
+            # Switching lane behavior
+            if signed_dist_from_center > 0.5:
+                if abs(head_wps[i]) <= switch_lane_max_angle:
                     return wps[i], i
 
-                # wp_heading = agent_obs["waypoints"]["heading"][wps_path_index][i]
-                # angle = (wp_heading + np.pi * 0.5) % (2 * np.pi)
-                # heading_dir_vec =  np.array((np.cos(angle), np.sin(angle)))
-                # signed_dist_from_center = signed_dist_to_line(ego["pos"][:2], wps[i][:2], heading_dir_vec)
+            else:
+                if dist_wps[i] > 0.5:
+                    if abs(head_wps[i]) <= max_angle:
+                        return wps[i], i
 
-                # if signed_dist_from_center > 0.1 and dist_wps[i] > 1.0:
-                # if dist_wps[i] > 1.0:
-                #     return wps[i], i
+                
         
         return wps[last_waypoint_index], last_waypoint_index
 
