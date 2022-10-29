@@ -63,9 +63,9 @@ class Policy(BasePolicy):
         covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
-        # model_path = Path(__file__).absolute().parents[0] / "best_model"
-        # self.model = torch.load(model_path)
-        # self.model.eval()
+        model_path = Path(__file__).absolute().parents[0] / "best_model"
+        self.model = torch.load(model_path)
+        self.model.eval()
 
     def act(self, obs: Dict[str, Any]):
         """Act function to be implemented by user.
@@ -113,7 +113,6 @@ class Policy(BasePolicy):
         ego_head = ego["heading"]
 
         wps = agent_obs["waypoints"]["pos"][wps_path_index]
-        wps_heading = agent_obs["waypoints"]["heading"][wps_path_index]
 
         # Distance of vehicle from way points
         vec_wps = [wp - ego["pos"] for wp in wps]
@@ -142,16 +141,16 @@ class Policy(BasePolicy):
             # Switching lane behavior
             if signed_dist_from_center > 0.5:
                 if abs(head_wps[i]) <= switch_lane_max_angle:
-                    return wps[i], wps_heading[i], i
+                    return wps[i], i
 
             else:
                 if dist_wps[i] > 0.5:
                     if abs(head_wps[i]) <= max_angle:
-                        return wps[i], wps_heading[i], i
+                        return wps[i], i
 
                 
         
-        return wps[last_waypoint_index], wps_heading[last_waypoint_index], last_waypoint_index
+        return wps[last_waypoint_index], last_waypoint_index
 
     def get_next_goal_pos(self, agent_obs):
         import numpy as np
@@ -166,7 +165,7 @@ class Policy(BasePolicy):
             next_path_index = goal_path_index
 
         # Get the next closest waypoints on the next path we decided
-        closest_wp, wp_heading, wp_index = self.get_next_waypoint(agent_obs=agent_obs, wps_path_index=next_path_index)
+        closest_wp, wp_index = self.get_next_waypoint(agent_obs=agent_obs, wps_path_index=next_path_index)
 
         # TODO: check whether this closest waypoint is feasible
         # 1. The furthest it can get within speed limit
@@ -177,21 +176,23 @@ class Policy(BasePolicy):
 
 
         speed_limit = agent_obs["waypoints"]["speed_limit"][next_path_index][wp_index]
-        next_goal_pos, next_goal_heading = self.get_next_limited_action(agent_obs["ego"]["pos"], [closest_wp[0], closest_wp[1], closest_wp[2], wp_heading], speed_limit)
+        next_goal_pos, next_goal_heading = self.get_next_limited_action(agent_obs["ego"]["pos"], closest_wp, speed_limit)
+
 
         action = [next_goal_pos[0], next_goal_pos[1], next_goal_heading]
 
-        # action_samples = self.get_action_samples(20, action, agent_obs["ego"]["pos"])
-        # action = self.get_safe_scores(agent_obs, action_samples, next_path_index)
+        action_samples = self.get_action_samples(20, action, agent_obs["ego"]["pos"])
+
+        action = self.get_safe_scores(agent_obs, action_samples, next_path_index)
         
         return action 
 
-    def get_next_limited_action(self, ego_pos, action, speed_limit):
+    def get_next_limited_action(self, ego_pos, pos, speed_limit):
         import numpy as np
 
         time_delta = 0.1
         #Check whether going to next waypoint exceed the speed limit
-        goal_vec = action[:3] - ego_pos
+        goal_vec = pos - ego_pos
         goal_dist = np.linalg.norm(goal_vec)
         goal_speed = goal_dist / time_delta
         goal_dir = goal_vec/ goal_dist
@@ -202,13 +203,13 @@ class Policy(BasePolicy):
 
         if goal_speed > speed_limit:
             next_goal_pos = ego_pos + speed_limit * goal_dir * time_delta * prop
-            next_goal_heading = np.arctan2(-goal_dir[0], goal_dir[1])
 
         else: 
             next_goal_pos = ego_pos + goal_speed * goal_dir * time_delta * prop
-            next_goal_heading = action[-1]
         
+        next_goal_heading = np.arctan2(-goal_dir[0], goal_dir[1])
         next_goal_heading = (next_goal_heading + np.pi) % (2 * np.pi) - np.pi
+        
 
         return next_goal_pos, next_goal_heading
 
