@@ -12,6 +12,7 @@ import sys
 from datetime import datetime
 from PIL import Image
 import pandas as pd
+import queue
 
 import gym
 import cloudpickle
@@ -25,7 +26,7 @@ from utils import load_config, merge_config, validate_config, write_output
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221026_2")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221029")
 
 
 _EVALUATION_CONFIG_KEYS = {
@@ -181,7 +182,7 @@ def _worker(input: bytes) -> None:
         os.makedirs(out_folder)
 
     counter = {
-        "collision": 0,
+        "collisions": 0,
         "off_road": 0,
         "on_shoulder": 0,
         "wrong_way": 0,
@@ -196,15 +197,22 @@ def _worker(input: bytes) -> None:
         df = pd.DataFrame()
 
     # for _ in range(eval_episodes):
-    while any(c < 100 for c in counter.values() ):
+    while any(c < 1000 for c in counter.values() ):
         observations = env.reset()
         dones = {"__all__": False}
+        queue_obs = queue.Queue()
+        queue_actions = queue.Queue()
         while not dones["__all__"]:
-            old_observations = observations
+            queue_obs.put(observations)
+            # old_observations = observations
             actions = policy.act(observations)
+            queue_actions.put(actions)
+
             observations, rewards, dones, infos = env.step(actions)
             counter = event_counter(counter, observations)
-            df = save_data(action=actions, old_observation=old_observations, observation=observations, df=df, out_folder=out_folder, counter=counter)
+
+            if  queue_obs.qsize() == 3:
+                df = save_data(action=queue_actions.get(), old_observation=queue_obs.get(), observation=observations, df=df, out_folder=out_folder, counter=counter)
 
         df.to_pickle(df_file)
 
@@ -217,7 +225,7 @@ def _worker(input: bytes) -> None:
 def event_counter(counter, observation):
     for agent_id, agent_obs in observation.items():
         if agent_obs["events"]["collisions"]:
-            counter["collision"] += 1
+            counter["collisions"] += 1
         elif agent_obs["events"]["off_road"]:
             counter["off_road"] += 1
         elif agent_obs["events"]["on_shoulder"]:
@@ -244,34 +252,23 @@ def save_data(action, old_observation, observation, df, out_folder, counter):
         data = {
             "action":[action[agent_id][:3]],
             "ego_pos": [ego_pos],
-            # "ego_pos": [old_agent_obs["ego"]["pos"]],
-            # "egp_heading": [old_agent_obs["ego"]["heading"]],
-            # "waypoints_pos": [old_agent_obs["waypoints"]["pos"][0][:10]],
-            # "waypoints_heading": [old_agent_obs["waypoints"]["heading"][0][:10]],
             "waypoints": [waypoints.flatten()],
             "waypoints_lane_width": [old_agent_obs["waypoints"]["lane_width"][0][:5]]
         }
 
         # Skip when waypoints is less than 5
-        mask = [i for i,v in enumerate(data["waypoints_lane_width"][0]) if v > 0.0]
-        if mask[-1] < 4:
-            break
+        # mask = [i for i,v in enumerate(data["waypoints_lane_width"][0]) if v > 0.0]
+        # if mask[-1] < 4:
+        #     break
 
-        if agent_obs["events"]["collisions"]:
-            data["event"] = "collision"
-        elif agent_obs["events"]["off_road"]:
-            data["event"] = "off_road"
-        elif agent_obs["events"]["on_shoulder"]:
-            data["event"] = "on_shoulder"
-        elif agent_obs["events"]["wrong_way"]:
-            data["event"] = "wrong_way"
-        elif agent_obs["events"]["off_route"]:
-            data["event"] = "off_route"
-        else:
-            if counter["safe"] > 300:
+        for event in ["collisions", "off_road", "on_shoulder", "wrong_way", "off_route"]:
+            if counter[event] > 1000:
                 break
             else:
-                data["event"] = "safe"
+                if agent_obs["events"][event]:
+                    data["event"] = event
+        if "event" not in data:
+            data["event"] = "safe"
         
         rgb = old_agent_obs["rgb"]
         image_file_name = save_image(rgb, agent_id, out_folder)

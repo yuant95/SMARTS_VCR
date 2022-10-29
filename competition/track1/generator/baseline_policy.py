@@ -145,7 +145,7 @@ class Policy(BasePolicy):
                     return wps[i], wps_heading[i], i
 
             else:
-                if dist_wps[i] > 0.5:
+                if dist_wps[i] > 1.0:
                     if abs(head_wps[i]) <= max_angle:
                         return wps[i], wps_heading[i], i
 
@@ -181,10 +181,10 @@ class Policy(BasePolicy):
 
         action = [next_goal_pos[0], next_goal_pos[1], next_goal_heading]
 
-        # action_samples = self.get_action_samples(20, action, agent_obs["ego"]["pos"])
+        action_samples = self.get_action_samples(1, action, agent_obs["ego"]["pos"])
         # action = self.get_safe_scores(agent_obs, action_samples, next_path_index)
         
-        return action 
+        return action_samples[0] 
 
     def get_next_limited_action(self, ego_pos, action, speed_limit):
         import numpy as np
