@@ -24,17 +24,17 @@ _EVALUATION_CONFIG_KEYS = {
 }
 _DEFAULT_EVALUATION_CONFIG = dict(
     phase="track1",
-    eval_episodes=50,
+    eval_episodes=20,
     seed=42,
     scenarios=[
         "1_to_2lane_left_turn_c",
-        "1_to_2lane_left_turn_t",
-        "3lane_merge_multi_agent",
-        "3lane_merge_single_agent",
-        "3lane_cruise_multi_agent",
-        "3lane_cruise_single_agent",
-        "3lane_cut_in",
-        "3lane_overtake",
+        # "1_to_2lane_left_turn_t",
+        # "3lane_merge_multi_agent",
+        # "3lane_merge_single_agent",
+        # "3lane_cruise_multi_agent",
+        # "3lane_cruise_single_agent",
+        # "3lane_cut_in",
+        # "3lane_overtake",
     ],
     bubble_env_evaluation_seeds=[6],
 )
@@ -43,7 +43,7 @@ _SUBMISSION_CONFIG_KEYS = {
     "img_pixels",
 }
 _DEFAULT_SUBMISSION_CONFIG = dict(
-    img_meters=64,
+    img_meters=50,
     img_pixels=256,
 )
 
@@ -102,7 +102,7 @@ def evaluate(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=True,
+        sumo_headless=False,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:
@@ -128,19 +128,19 @@ def evaluate(config):
     forkserver_available = "forkserver" in mp.get_all_start_methods()
     start_method = "forkserver" if forkserver_available else "spawn"
     mp_context = mp.get_context(start_method)
-    with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
-        futures = [
-            pool.submit(
-                _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
-            )
-            for env_name, env_ctor in env_ctors.items()
-        ]
-        for future in as_completed(futures):
-            counts, costs = future.result()
-            score.add(counts, costs)
-    # for env_name, env_ctor in env_ctors.items():
-    #     counts, costs = _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
-    #     score.add(counts, costs)
+    # with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
+    #     futures = [
+    #         pool.submit(
+    #             _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
+    #         )
+    #         for env_name, env_ctor in env_ctors.items()
+    #     ]
+    #     for future in as_completed(futures):
+    #         counts, costs = future.result()
+    #         score.add(counts, costs)
+    for env_name, env_ctor in env_ctors.items():
+        counts, costs = _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
+        score.add(counts, costs)
 
     rank = score.compute()
     logger.info("\nOverall Rank: %s\n", rank)

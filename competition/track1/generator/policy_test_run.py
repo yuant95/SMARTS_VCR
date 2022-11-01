@@ -18,7 +18,7 @@ import cloudpickle
 
 from copy_data import CopyData, DataStore
 # from policy import Policy, submitted_wrappers
-from baseline_policy import Policy, submitted_wrappers
+from filtering_policy import Policy, submitted_wrappers
 
 from utils import load_config, merge_config, validate_config, write_output
 
@@ -37,13 +37,13 @@ _EVALUATION_CONFIG_KEYS = {
 }
 _DEFAULT_EVALUATION_CONFIG = dict(
     phase="track1",
-    eval_episodes=5,
-    seed=42,
+    eval_episodes=10,
+    seed=36,
     scenarios=[
         "1_to_2lane_left_turn_c",
         # "1_to_2lane_left_turn_t",
         # "3lane_merge_multi_agent",
-        "3lane_merge_single_agent",
+        # "3lane_merge_single_agent",
         # "3lane_cruise_multi_agent",
         # "3lane_cruise_single_agent",
         # "3lane_cut_in",
@@ -108,7 +108,7 @@ def run(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=True,
+        sumo_headless=False,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:

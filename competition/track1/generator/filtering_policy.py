@@ -1,9 +1,6 @@
 from cmath import inf
 from pathlib import Path
 from typing import Any, Dict
-from torch import ne
-
-from wandb import agent
 
 class BasePolicy:
     def act(self, obs: Dict[str, Any]):
@@ -63,7 +60,7 @@ class Policy(BasePolicy):
         covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
-        model_path = Path(__file__).absolute().parents[0] / "best_model"
+        model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
         self.model = torch.load(model_path)
         self.model.eval()
 
@@ -181,9 +178,15 @@ class Policy(BasePolicy):
 
         action = [next_goal_pos[0], next_goal_pos[1], next_goal_heading]
 
-        action_samples = self.get_action_samples(20, action, agent_obs["ego"]["pos"])
+        # action_samples = self.get_action_samples(1, action, agent_obs["ego"]["pos"])
 
-        action = self.get_safe_scores(agent_obs, action_samples, next_path_index)
+        scores = self.get_safe_scores(agent_obs, [action], next_path_index)
+
+        if scores[0,0] > 0.8:
+            goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
+            action = agent_obs["ego"]["pos"][:2] + 0.01 * goal_dir[:2]
+            action = [action[0], action[1], next_goal_heading]
+
         
         return action 
 
@@ -260,22 +263,26 @@ class Policy(BasePolicy):
         import torch
         import torchvision.transforms as transforms
         import numpy as np
+
         inputs = self.get_model_input(agent_obs, actions, path_index)
-
         n_samples = inputs.shape[0]
-
-        to_tensor = transforms.ToTensor()
-        imgs = to_tensor(agent_obs["rgb"]).unsqueeze(0).repeat(n_samples, 1, 1, 1)
-
-        outputs = self.model(imgs, inputs)
+        imgs = torch.permute(torch.from_numpy(agent_obs["rgb"]), (2, 0, 1)).unsqueeze(0).repeat(n_samples, 1, 1, 1)
+    
+        with torch.no_grad():
+            outputs = self.model(imgs, inputs.float())
         sm = torch.nn.Softmax()
         prob = sm(outputs) 
 
-        safe_choice_prob = sm(prob[:, -5])
-        indices = [i for i in range(len(actions))]
-        final_action_index = np.random.choice(indices, 1, p=safe_choice_prob.detach().numpy())
+        return prob
+        # safe_choice_prob = sm(prob[:, 5])
+        # indices = [i for i in range(len(actions))]
+        # final_action_index = np.random.choice(indices, 1, p=safe_choice_prob.detach().numpy())
 
-        return actions[final_action_index[0]]
+        # if prob[final_action_index[0], 0] > 0.8:
+        #     return [agent_obs["ego"]["pos"][0], agent_obs["ego"]["pos"][1], agent_obs["ego"]["heading"]]
+
+        # else:
+        #     return actions[final_action_index[0]]
 
         # return prob
 
@@ -296,7 +303,6 @@ class Policy(BasePolicy):
             inputs.append(input)
 
         inputs = torch.from_numpy(np.array(inputs))
-        inputs = inputs.type(torch.FloatTensor)
 
         return inputs
         

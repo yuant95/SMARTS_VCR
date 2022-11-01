@@ -16,6 +16,7 @@ class CustomImageDataset(Dataset):
 
     def __getitem__(self, idx):
         labels_map = {
+            "collisions": 0,
             "collision": 0,
             "off_road": 1,
             "on_shoulder": 2,
