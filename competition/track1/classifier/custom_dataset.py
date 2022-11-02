@@ -16,6 +16,7 @@ class CustomImageDataset(Dataset):
 
     def __getitem__(self, idx):
         labels_map = {
+            "collisions": 0,
             "collision": 0,
             "off_road": 1,
             "on_shoulder": 2,
@@ -41,7 +42,61 @@ class CustomImageDataset(Dataset):
                 return_features = np.concatenate((return_features, element.astype(np.float32)), axis=0)
             return image, return_features, label
         except:
-            del self.img_labels[idx]
+            self.img_labels.drop[idx]
+            return self.__getitem__(idx)
+
+class AllImageDataset(Dataset):
+    def __init__(self, img_dir, transform=None, target_transform=None):
+        # self.img_labels = pd.read_pickle(annotations_file)
+        self.img_labels = pd.DataFrame()
+        for subdir, dirs, files in os.walk(img_dir):
+            for dir in dirs:
+                try:
+                    filename = dir + "/df_" + dir + ".pkl"
+                    labels = pd.read_pickle(os.path.join(img_dir, filename))
+                    labels['image_file'] = dir + "/" + labels['image_file']
+                    if self.img_labels.empty:
+                        self.img_labels = labels
+                    else:
+                        self.img_labels = self.img_labels.append(labels)
+                except Exception as e:
+                    print("Failed to load data from {} due to {}".format(dir, str(e)))
+        self.img_dir = img_dir
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self):
+        return len(self.img_labels)
+
+    def __getitem__(self, idx):
+        labels_map = {
+            "collisions": 0,
+            "collision": 0,
+            "off_road": 1,
+            "on_shoulder": 2,
+            "wrong_way": 3,
+            "off_route": 4,
+            "safe":5
+        }
+        try:
+            img_path = os.path.join(self.img_dir, self.img_labels.loc[:, "image_file"].iloc[idx])
+            image = read_image(img_path)
+            label = labels_map[self.img_labels.loc[:, "event"].iloc[idx]]
+            if self.transform:
+                image = self.transform(image)
+            if self.target_transform:
+                label = self.target_transform(label)
+            features = self.img_labels.loc[:, 
+                ["action", 
+                "ego_pos",
+                "waypoints",  
+                ]].iloc[idx]
+            return_features = np.array([])
+            for element in features.ravel():
+                return_features = np.concatenate((return_features, element.astype(np.float32)), axis=0)
+            return image, return_features, label
+        except:
+            self.img_labels.drop[idx]
             return self.__getitem__(idx)
 
 # TRAINING_DATA = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221026_2/1_to_2lane_left_turn_t"
