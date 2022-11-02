@@ -1,9 +1,8 @@
 from cmath import inf
 from pathlib import Path
+from tracemalloc import start
 from typing import Any, Dict
-from torch import ne
-
-from wandb import agent
+import numpy as np
 
 class BasePolicy:
     def act(self, obs: Dict[str, Any]):
@@ -63,7 +62,7 @@ class Policy(BasePolicy):
         covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
-        model_path = Path(__file__).absolute().parents[0] / "best_model"
+        model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
         self.model = torch.load(model_path)
         self.model.eval()
 
@@ -104,18 +103,19 @@ class Policy(BasePolicy):
         
         raise Exception("ego car is in lane {}, and no way points found for this lane.".format(ego_lane))
 
-    def get_next_waypoint(self, agent_obs, wps_path_index):
+    def get_waypoint_index_range(self, agent_obs, wps_path_index):
         # import numpy as np
         from smarts.core.utils.math import signed_dist_to_line  
         import numpy as np
 
         ego = agent_obs["ego"]
         ego_head = ego["heading"]
+        ego_pos = ego["pos"]
 
         wps = agent_obs["waypoints"]["pos"][wps_path_index]
 
         # Distance of vehicle from way points
-        vec_wps = [wp - ego["pos"] for wp in wps]
+        vec_wps = [wp - ego_pos for wp in wps]
         dist_wps = [np.linalg.norm(vec_wp) for vec_wp in vec_wps]
         # wp_index = np.argmin(dist_wps)
         # closest_wp = wps[wp_index]
@@ -141,16 +141,14 @@ class Policy(BasePolicy):
             # Switching lane behavior
             if signed_dist_from_center > 0.5:
                 if abs(head_wps[i]) <= switch_lane_max_angle:
-                    return wps[i], i
+                    return i, last_waypoint_index
 
             else:
                 if dist_wps[i] > 0.5:
                     if abs(head_wps[i]) <= max_angle:
-                        return wps[i], i
-
-                
+                        return i, last_waypoint_index
         
-        return wps[last_waypoint_index], last_waypoint_index
+        return last_waypoint_index, last_waypoint_index
 
     def get_next_goal_pos(self, agent_obs):
         import numpy as np
@@ -165,7 +163,12 @@ class Policy(BasePolicy):
             next_path_index = goal_path_index
 
         # Get the next closest waypoints on the next path we decided
-        closest_wp, wp_index = self.get_next_waypoint(agent_obs=agent_obs, wps_path_index=next_path_index)
+        wp_index, wp_last_index = self.get_waypoint_index_range(agent_obs=agent_obs, wps_path_index=next_path_index)
+
+        # get the next speed limit
+        speed_limit = agent_obs["waypoints"]["speed_limit"][next_path_index][wp_index]
+
+        # Now get the 
 
         # TODO: check whether this closest waypoint is feasible
         # 1. The furthest it can get within speed limit
@@ -174,18 +177,28 @@ class Policy(BasePolicy):
         #         - whether the next loaction maintain the safe distance of the other car
         # 3. If collision, then cut the travel distance to half, and check again, recursively till the speed ~= 0
 
+        next_waypoint, next_waypoint_heading = get_smoothed_future_waypoints(
+            waypoints=agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index, :2], 
+            start_pos=agent_obs["ego"]["pos"][:2], 
+            n_points=1)
 
-        speed_limit = agent_obs["waypoints"]["speed_limit"][next_path_index][wp_index]
-        next_goal_pos, next_goal_heading = self.get_next_limited_action(agent_obs["ego"]["pos"], closest_wp, speed_limit)
-
-
-        action = [next_goal_pos[0], next_goal_pos[1], next_goal_heading]
-
-        action_samples = self.get_action_samples(20, action, agent_obs["ego"]["pos"])
-
-        action = self.get_safe_scores(agent_obs, action_samples, next_path_index)
         
-        return action 
+        next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[0], speed_limit)
+
+
+        action = [next_goal_pos[0], next_goal_pos[1], next_waypoint_heading[0]]
+
+        action_samples = self.get_action_samples(1, action, agent_obs["ego"]["pos"])
+
+        # scores = self.get_safe_scores(agent_obs, [action], next_path_index)
+
+        # if scores[0,0] > 0.8:
+        #     goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
+        #     action = agent_obs["ego"]["pos"][:2] + 0.01 * goal_dir[:2]
+        #     action = [action[0], action[1], next_waypoint_heading[0]]
+
+        
+        return action_samples[0] 
 
     def get_next_limited_action(self, ego_pos, pos, speed_limit):
         import numpy as np
@@ -246,11 +259,13 @@ class Policy(BasePolicy):
 
     def get_action_samples(self, n_samples, action, current_pos):
         import numpy as np
+        from scipy.stats import truncnorm
         goal_dir = action[:2] - current_pos[:2]
 
         samples = []
         for i in range(n_samples):
-            prop = self._pos_space.sample()
+            # prop = self._pos_space.sample()
+            prop = 1 - truncnorm.rvs(0.0, 1.0, size=1)[0]
             sample_action = current_pos[:2] + prop * goal_dir[:2]
             samples.append([sample_action[0], sample_action[1], action[2]])
 
@@ -260,22 +275,26 @@ class Policy(BasePolicy):
         import torch
         import torchvision.transforms as transforms
         import numpy as np
+
         inputs = self.get_model_input(agent_obs, actions, path_index)
-
         n_samples = inputs.shape[0]
-
-        to_tensor = transforms.ToTensor()
-        imgs = to_tensor(agent_obs["rgb"]).unsqueeze(0).repeat(n_samples, 1, 1, 1)
-
-        outputs = self.model(imgs, inputs)
+        imgs = torch.permute(torch.from_numpy(agent_obs["rgb"]), (2, 0, 1)).unsqueeze(0).repeat(n_samples, 1, 1, 1)
+    
+        with torch.no_grad():
+            outputs = self.model(imgs, inputs.float())
         sm = torch.nn.Softmax()
         prob = sm(outputs) 
 
-        safe_choice_prob = sm(prob[:, -5])
-        indices = [i for i in range(len(actions))]
-        final_action_index = np.random.choice(indices, 1, p=safe_choice_prob.detach().numpy())
+        return prob
+        # safe_choice_prob = sm(prob[:, 5])
+        # indices = [i for i in range(len(actions))]
+        # final_action_index = np.random.choice(indices, 1, p=safe_choice_prob.detach().numpy())
 
-        return actions[final_action_index[0]]
+        # if prob[final_action_index[0], 0] > 0.8:
+        #     return [agent_obs["ego"]["pos"][0], agent_obs["ego"]["pos"][1], agent_obs["ego"]["heading"]]
+
+        # else:
+        #     return actions[final_action_index[0]]
 
         # return prob
 
@@ -296,11 +315,82 @@ class Policy(BasePolicy):
             inputs.append(input)
 
         inputs = torch.from_numpy(np.array(inputs))
-        inputs = inputs.type(torch.FloatTensor)
 
         return inputs
-        
 
 
+def get_spline(waypoints_pos, ego_pos):
+    from scipy.interpolate import CubicSpline
+    xy_swap = False
+    x = [ego_pos[0]]
+    y = [ego_pos[1]]
+    x.extend([pos[0] for pos in waypoints_pos])
+    y.extend([pos[1] for pos in waypoints_pos])
+    try:
+        cb = CubicSpline(x, y)
+    except ValueError:
+        cb = CubicSpline(y, x)
+        xy_swap = True
+
+    return cb, xy_swap
+
+def get_t(spline, t, start_pos, xy_swapped) -> np.array :
+
+    current_t = 0.0 
+    if (xy_swapped):
+        x = start_pos[1]
+    else:
+        x = start_pos[0]
+
+    inc = 0.1
+    current_point = np.array([x, spline(x)])
+    while current_t < t: 
+        prev_point = current_point
+        x += inc 
+        current_point = np.array([x, spline(x)])
+        dist = np.linalg.norm(current_point - prev_point)
+        current_t += dist
+    
+    if xy_swapped:
+        return np.array([current_point[1], current_point[0]])
+    else:
+        return current_point
+
+def get_spline_direction(spline, pos, xy_swapped):
+    if xy_swapped:
+        g = spline(x=pos[1], nu=1)
+        return [0, g]
+    else:
+        g = spline(x=pos[0], nu=1)
+        return [1, g]
+
+def get_bezier_curve(waypoints_pos, ego_pos):
+    import bezier
+
+    xy_swap = False
+    x = [ego_pos[0]]
+    y = [ego_pos[1]]
+    x.extend([pos[0] for pos in waypoints_pos])
+    y.extend([pos[1] for pos in waypoints_pos])
+
+    nodes = np.asfortranarray([x, y])
+    return bezier.Curve(nodes, degree=nodes.shape[1]-1)
+
+def get_smoothed_future_waypoints(waypoints, start_pos, n_points):
+    import bezier
+
+    wps = []
+    wps_heading = []
+    curve = get_bezier_curve(waypoints, start_pos)
+    for i in range(n_points):
+        wp = curve.evaluate(1.0/curve.length)
+        dir_wp = curve.evaluate_hodograph(1.0/curve.length)
+        heading = np.arctan2(-dir_wp[0][0], dir_wp[1][0])
+        heading = (heading + np.pi) % (2 * np.pi) - np.pi 
+        wps_heading.append(heading)
+        wps.append([wp[0][0], wp[1][0]])
+
+    return wps, wps_heading
+    
 
             

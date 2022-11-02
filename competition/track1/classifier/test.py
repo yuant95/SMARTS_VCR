@@ -24,6 +24,7 @@ with torch.no_grad():
         _, predicted = torch.max(outputs.data, 1)
         sm = torch.nn.Softmax()
         prob = sm(outputs)
+        prob = sm(outputs) 
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
         accuracy = correct/total
