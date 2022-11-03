@@ -19,15 +19,17 @@ import cloudpickle
 
 from copy_data import CopyData, DataStore
 # from policy import Policy, submitted_wrappers
-from baseline_policy import Policy, submitted_wrappers
+from filtering_policy import Policy, submitted_wrappers
 
 from utils import load_config, merge_config, validate_config, write_output
 
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221029")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221102_10step")
 
+N_EVENT = 2000
+STEP = 10
 
 _EVALUATION_CONFIG_KEYS = {
     "phase",
@@ -45,7 +47,7 @@ _DEFAULT_EVALUATION_CONFIG = dict(
         # "1_to_2lane_left_turn_t",
         # "3lane_merge_multi_agent",
         # "3lane_merge_single_agent",
-        # "3lane_cruise_multi_agent",
+        # # "3lane_cruise_multi_agent",
         # "3lane_cruise_single_agent",
         # "3lane_cut_in",
         # "3lane_overtake",
@@ -100,6 +102,7 @@ def _make_env(
         env = wrapper(env)
 
     # Set seed.
+    import time
     env.seed(seed)
 
     return env, datastore
@@ -197,22 +200,45 @@ def _worker(input: bytes) -> None:
         df = pd.DataFrame()
 
     # for _ in range(eval_episodes):
-    while any(c < 1000 for c in counter.values() ):
+    while any(c < N_EVENT for c in counter.values() ) and (sum(counter.values()) < N_EVENT * 3):
         observations = env.reset()
         dones = {"__all__": False}
         queue_obs = queue.Queue()
         queue_actions = queue.Queue()
+        queue_waypoints = queue.Queue()
         while not dones["__all__"]:
-            queue_obs.put(observations)
             # old_observations = observations
             actions = policy.act(observations)
+            queue_obs.put(observations)
+            smoothed_waypoints = policy.get_smoothed_waypoints()
             queue_actions.put(actions)
+            queue_waypoints.put(smoothed_waypoints)
 
             observations, rewards, dones, infos = env.step(actions)
-            counter = event_counter(counter, observations)
 
-            if  queue_obs.qsize() == 3:
-                df = save_data(action=queue_actions.get(), old_observation=queue_obs.get(), observation=observations, df=df, out_folder=out_folder, counter=counter)
+            if  queue_obs.qsize() == STEP:
+                # If the episode terminated, collision/ maximum steps etc
+                # label everything in the queue
+                if dones["__all__"]:
+                    for i in range(STEP-1):
+                        df, counter = save_data(action=queue_actions.queue[i], 
+                            old_observation=queue_obs.queue[i], 
+                            observation=observations,  
+                            smoothed_waypoints=queue_waypoints.queue[i], 
+                            df=df, 
+                            out_folder=out_folder, 
+                            counter=counter, 
+                            step=i+1)
+
+                # Only label the 8th one if the episode is not terminated
+                df, counter = save_data(action=queue_actions.get(), 
+                    old_observation=queue_obs.get(), 
+                    observation=observations,
+                    smoothed_waypoints=queue_waypoints.get(), 
+                    df=df, 
+                    out_folder=out_folder, 
+                    counter=counter, 
+                    step=STEP)
 
         df.to_pickle(df_file)
 
@@ -222,24 +248,24 @@ def _worker(input: bytes) -> None:
     
     return None
 
-def event_counter(counter, observation):
-    for agent_id, agent_obs in observation.items():
-        if agent_obs["events"]["collisions"]:
-            counter["collisions"] += 1
-        elif agent_obs["events"]["off_road"]:
-            counter["off_road"] += 1
-        elif agent_obs["events"]["on_shoulder"]:
-            counter["on_shoulder"] += 1
-        elif agent_obs["events"]["wrong_way"]:
-            counter["wrong_way"] += 1
-        elif agent_obs["events"]["off_route"]:
-            counter["off_route"] += 1
-        else:
-            counter["safe"] += 1
+# def event_counter(counter, observation):
+#     for agent_id, agent_obs in observation.items():
+#         if agent_obs["events"]["collisions"]:
+#             counter["collisions"] += 1
+#         elif agent_obs["events"]["off_road"]:
+#             counter["off_road"] += 1
+#         elif agent_obs["events"]["on_shoulder"]:
+#             counter["on_shoulder"] += 1
+#         elif agent_obs["events"]["wrong_way"]:
+#             counter["wrong_way"] += 1
+#         elif agent_obs["events"]["off_route"]:
+#             counter["off_route"] += 1
+#         else:
+#             counter["safe"] += 1
 
-    return counter
+#     return counter
 
-def save_data(action, old_observation, observation, df, out_folder, counter):
+def save_data(action, old_observation, observation, smoothed_waypoints,  df, out_folder, counter, step):
     
     for agent_id, agent_obs in observation.items():
         old_agent_obs = old_observation[agent_id]
@@ -252,8 +278,10 @@ def save_data(action, old_observation, observation, df, out_folder, counter):
         data = {
             "action":[action[agent_id][:3]],
             "ego_pos": [ego_pos],
-            "waypoints": [waypoints.flatten()],
-            "waypoints_lane_width": [old_agent_obs["waypoints"]["lane_width"][0][:5]]
+            "original_waypoints": [waypoints.flatten()],
+            "waypoints":[smoothed_waypoints[agent_id].flatten()],
+            # "waypoints_lane_width": [old_agent_obs["waypoints"]["lane_width"][0][:5]], 
+            "step": step
         }
 
         # Skip when waypoints is less than 5
@@ -262,13 +290,18 @@ def save_data(action, old_observation, observation, df, out_folder, counter):
         #     break
 
         for event in ["collisions", "off_road", "on_shoulder", "wrong_way", "off_route"]:
-            if counter[event] > 1000:
+            if counter[event] > N_EVENT:
                 break
             else:
                 if agent_obs["events"][event]:
+                    counter[event] += 1
                     data["event"] = event
         if "event" not in data:
-            data["event"] = "safe"
+            if counter["safe"] > N_EVENT:
+                break
+            else:
+                counter["safe"] += 1
+                data["event"] = "safe"
         
         rgb = old_agent_obs["rgb"]
         image_file_name = save_image(rgb, agent_id, out_folder)
@@ -280,8 +313,7 @@ def save_data(action, old_observation, observation, df, out_folder, counter):
         else:
             df = df.append(dfi)
 
-    return df
-    
+    return df, counter
 
 def save_image(rgb, prex, out_folder):
     filename = generate_filename()

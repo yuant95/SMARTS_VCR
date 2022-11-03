@@ -65,6 +65,10 @@ class Policy(BasePolicy):
         model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
         self.model = torch.load(model_path)
         self.model.eval()
+        self.smoothed_waypoints = {}
+
+    def get_smoothed_waypoints(self):
+        return self.smoothed_waypoints
 
     def act(self, obs: Dict[str, Any]):
         """Act function to be implemented by user.
@@ -81,7 +85,8 @@ class Policy(BasePolicy):
         for agent_id, agent_obs in obs.items():
             # action = self._action_space.sample()
             # wrapped_act.update({agent_id: action})
-            action = self.get_next_goal_pos(agent_obs)
+            action = self.get_next_goal_pos(agent_obs, agent_id)
+            
             action = np.array(
                         [action[0], action[1], action[2], time_delta], dtype=np.float32
                     )
@@ -150,7 +155,7 @@ class Policy(BasePolicy):
         
         return last_waypoint_index, last_waypoint_index
 
-    def get_next_goal_pos(self, agent_obs):
+    def get_next_goal_pos(self, agent_obs, agent_id):
         import numpy as np
 
         current_path_index = self.get_current_waypoint_path_index(agent_obs)
@@ -177,18 +182,19 @@ class Policy(BasePolicy):
         #         - whether the next loaction maintain the safe distance of the other car
         # 3. If collision, then cut the travel distance to half, and check again, recursively till the speed ~= 0
 
-        next_waypoint, next_waypoint_heading = get_smoothed_future_waypoints(
-            waypoints=agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index, :2], 
+        next_waypoint = get_smoothed_future_waypoints(waypoints=agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index, :2], 
             start_pos=agent_obs["ego"]["pos"][:2], 
-            n_points=1)
-
+            n_points=1)[0]
         
-        next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[0], speed_limit)
-
-
-        action = [next_goal_pos[0], next_goal_pos[1], next_waypoint_heading[0]]
-
+        next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[:2], speed_limit)
+        action = [next_goal_pos[0], next_goal_pos[1], next_waypoint[2]]
         action_samples = self.get_action_samples(1, action, agent_obs["ego"]["pos"])
+        action = action_samples[0]
+
+        #  update future waypoints based on given action
+        self.smoothed_waypoints[agent_id] = get_smoothed_future_waypoints(waypoints=agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index, :2], 
+            start_pos=action[:2], 
+            n_points=5)
 
         # scores = self.get_safe_scores(agent_obs, [action], next_path_index)
 
@@ -196,9 +202,8 @@ class Policy(BasePolicy):
         #     goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
         #     action = agent_obs["ego"]["pos"][:2] + 0.01 * goal_dir[:2]
         #     action = [action[0], action[1], next_waypoint_heading[0]]
-
         
-        return action_samples[0] 
+        return action
 
     def get_next_limited_action(self, ego_pos, pos, speed_limit):
         import numpy as np
@@ -356,6 +361,22 @@ def get_t(spline, t, start_pos, xy_swapped) -> np.array :
     else:
         return current_point
 
+# def set_smoothed_future_waypoints(self, waypoints, start_pos, n_points, agent_id):
+#     import bezier
+
+#     wps = []
+#     wps_heading = []
+#     curve = get_bezier_curve(waypoints, start_pos)
+#     for i in range(n_points):
+#         wp = curve.evaluate(1.0*(i+1)/curve.length)
+#         dir_wp = curve.evaluate_hodograph(1.0/curve.length)
+#         heading = np.arctan2(-dir_wp[0][0], dir_wp[1][0])
+#         heading = (heading + np.pi) % (2 * np.pi) - np.pi 
+#         wps_heading.append(heading)
+#         wps.append([wp[0][0], wp[1][0]])
+
+#     self.smoothed_waypoints[agent_id] = [[wp[0], wp[1], heading] for wp, heading in zip(wps, wps_heading)]
+    
 def get_spline_direction(spline, pos, xy_swapped):
     if xy_swapped:
         g = spline(x=pos[1], nu=1)
@@ -380,17 +401,15 @@ def get_smoothed_future_waypoints(waypoints, start_pos, n_points):
     import bezier
 
     wps = []
-    wps_heading = []
     curve = get_bezier_curve(waypoints, start_pos)
     for i in range(n_points):
-        wp = curve.evaluate(1.0/curve.length)
+        wp = curve.evaluate(1.0 * (i+1) /curve.length)
         dir_wp = curve.evaluate_hodograph(1.0/curve.length)
         heading = np.arctan2(-dir_wp[0][0], dir_wp[1][0])
         heading = (heading + np.pi) % (2 * np.pi) - np.pi 
-        wps_heading.append(heading)
-        wps.append([wp[0][0], wp[1][0]])
+        wps.append([wp[0][0], wp[1][0], heading])
 
-    return wps, wps_heading
+    return wps
     
 
             
