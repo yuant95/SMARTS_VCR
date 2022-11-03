@@ -16,6 +16,7 @@ import queue
 
 import gym
 import cloudpickle
+import numpy as np
 
 from copy_data import CopyData, DataStore
 # from policy import Policy, submitted_wrappers
@@ -44,13 +45,13 @@ _DEFAULT_EVALUATION_CONFIG = dict(
     seed=42,
     scenarios=[
         "1_to_2lane_left_turn_c",
-        # "1_to_2lane_left_turn_t",
-        # "3lane_merge_multi_agent",
-        # "3lane_merge_single_agent",
-        # # "3lane_cruise_multi_agent",
-        # "3lane_cruise_single_agent",
-        # "3lane_cut_in",
-        # "3lane_overtake",
+        "1_to_2lane_left_turn_t",
+        "3lane_merge_multi_agent",
+        "3lane_merge_single_agent",
+        # "3lane_cruise_multi_agent",
+        "3lane_cruise_single_agent",
+        "3lane_cut_in",
+        "3lane_overtake",
     ],
     bubble_env_evaluation_seeds=[6],
 )
@@ -112,7 +113,7 @@ def run(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=True,
+        sumo_headless=False,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:
@@ -279,7 +280,7 @@ def save_data(action, old_observation, observation, smoothed_waypoints,  df, out
             "action":[action[agent_id][:3]],
             "ego_pos": [ego_pos],
             "original_waypoints": [waypoints.flatten()],
-            "waypoints":[smoothed_waypoints[agent_id].flatten()],
+            "waypoints":[np.array(smoothed_waypoints[agent_id]).flatten()],
             # "waypoints_lane_width": [old_agent_obs["waypoints"]["lane_width"][0][:5]], 
             "step": step
         }
