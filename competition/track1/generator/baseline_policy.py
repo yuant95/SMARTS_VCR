@@ -1,6 +1,7 @@
 from cmath import inf
 from pathlib import Path
 from typing import Any, Dict
+from parso import split_lines
 from torch import ne
 
 from wandb import agent
@@ -298,8 +299,7 @@ class Policy(BasePolicy):
         inputs = inputs.type(torch.FloatTensor)
 
         return inputs
-        
 
+    def get_waypoint_spline(self, x, y):
 
-
-            
+        return None

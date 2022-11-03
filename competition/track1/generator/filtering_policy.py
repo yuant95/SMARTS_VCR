@@ -181,8 +181,13 @@ class Policy(BasePolicy):
         #         - whether the trajectory will cross other neighbor's trajectory
         #         - whether the next loaction maintain the safe distance of the other car
         # 3. If collision, then cut the travel distance to half, and check again, recursively till the speed ~= 0
+        waypoints_pos =  agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index+1, :2]
+        if (wp_last_index - wp_index) < 1:
+            r = np.ones(len(waypoints_pos))
+            r[-1] = 1 - len(waypoints_pos) + 1
+            waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
 
-        next_waypoint = get_smoothed_future_waypoints(waypoints=agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index, :2], 
+        next_waypoint = get_smoothed_future_waypoints(waypoints=waypoints_pos, 
             start_pos=agent_obs["ego"]["pos"][:2], 
             n_points=1)[0]
         
@@ -198,7 +203,7 @@ class Policy(BasePolicy):
         agent_obs_copy["ego"]["pos"] = [ action[0], action[1], 0 ]
         agent_obs_copy["ego"]["heading"] = action[2]
         wp_index, wp_last_index = self.get_waypoint_index_range(agent_obs=agent_obs_copy, wps_path_index=next_path_index)
-        waypoints_pos =  agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index, :2]
+        waypoints_pos =  agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index+1, :2]
         if (wp_last_index - wp_index) < 5:
             r = np.ones(len(waypoints_pos))
             r[-1] = 5 - len(waypoints_pos) + 1
