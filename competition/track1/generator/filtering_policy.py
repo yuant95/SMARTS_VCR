@@ -109,7 +109,12 @@ class Policy(BasePolicy):
                     min_dist = dist
                     min_index = i
 
-        return i
+        if min_index < 0:
+            print("no way points found for ego pos at {}".format(ego_pos))
+            print("waypoints pos: {}".format(str(waypoints_pos)))
+            min_index = 0
+
+        return min_index
 
     def get_waypoint_index_range(self, agent_obs, wps_path_index):
         # import numpy as np
@@ -280,18 +285,26 @@ class Policy(BasePolicy):
 
     def get_cloest_path_index_to_goal(self, agent_obs):
         import numpy as np
+        try:
+            goal_pos = agent_obs["mission"]["goal_pos"]
+            wps = agent_obs["waypoints"]
+            wps_pos = wps["pos"]
+            wps_lane_width = wps["lane_width"]
+            s = [ np.flatnonzero(wps_lane_width[i] > 0.1) for i in range(len(wps_lane_width))]
+            last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
+            waypoint_path_index_candidate = [i for i in range(len(wps_pos)) if last_waypoints_index[i] > 0]
 
-        goal_pos = agent_obs["mission"]["goal_pos"]
-        wps = agent_obs["waypoints"]
-        wps_lane_width = wps["lane_width"]
-        s = [ np.flatnonzero(wps_lane_width[i] > 0.1) for i in range(len(wps_lane_width))]
-        last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
+            last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints_index) if point_index >= 0 ]
+            dist_to_goal = [np.linalg.norm(wp - goal_pos) for wp in last_waypoints_pos]
+            index = np.argmin(dist_to_goal)
 
-        last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints_index) if point_index >= 0 ]
-        dist_to_goal = [np.linalg.norm(wp - goal_pos) for wp in last_waypoints_pos]
-        path_index = np.argmin(dist_to_goal)
+            return waypoint_path_index_candidate[index]
+        except:
+            print("failed to find the cloest path index to goal.")
+            print("Mission = {}".format(str(agent_obs["mission"])))
+            print("Waypoints = {}".format(str(wps)))
 
-        return path_index
+            return 0
 
     def get_action_samples(self, n_samples, action, current_pos):
         import numpy as np

@@ -102,20 +102,25 @@ class Policy(BasePolicy):
         return wrapped_act
 
     def get_current_waypoint_path_index(self, agent_obs):
-        ego_lane = agent_obs["ego"]["lane_index"]
+        ego_pos = agent_obs["ego"]["pos"]
+        waypoints_pos = agent_obs["waypoints"]["pos"]
+        waypoints_lane_indices = agent_obs["waypoints"]["lane_width"]
 
-        waypoints_lane_indices = agent_obs["waypoints"]["lane_index"]
+        min_dist = np.inf
+        min_index = -1
+        for i in range(len(waypoints_pos)):
+            if waypoints_lane_indices[i][0] > 0.0:
+                dist = np.linalg.norm(waypoints_pos[i][0] - ego_pos)
+                if dist <= min_dist:
+                    min_dist = dist
+                    min_index = i
 
-        for index, path in enumerate(waypoints_lane_indices):
-            last_waypoint_index = self.get_last_waypoint_index(agent_obs["waypoints"]["lane_width"][index])
+        if min_index < 0:
+            print("no way points found for ego pos at {}".format(ego_pos))
+            print("waypoints pos: {}".format(str(waypoints_pos)))
+            min_index = 0
 
-            if last_waypoint_index:
-                if ego_lane in path[:last_waypoint_index+1]:
-                    return index
-        
-        # raise Exception("ego car is in lane {}, and no way points found for this lane.".format(ego_lane))
-        print("ego car is in lane {}, and no way points found for this lane.".format(ego_lane))
-        return 0
+        return min_index
         
     def get_waypoint_index_range(self, agent_obs, wps_path_index):
         # import numpy as np
@@ -312,18 +317,26 @@ class Policy(BasePolicy):
 
     def get_cloest_path_index_to_goal(self, agent_obs):
         import numpy as np
+        try:
+            goal_pos = agent_obs["mission"]["goal_pos"]
+            wps = agent_obs["waypoints"]
+            wps_pos = wps["pos"]
+            wps_lane_width = wps["lane_width"]
+            s = [ np.flatnonzero(wps_lane_width[i] > 0.1) for i in range(len(wps_lane_width))]
+            last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
+            waypoint_path_index_candidate = [i for i in range(len(wps_pos)) if last_waypoints_index[i] > 0]
 
-        goal_pos = agent_obs["mission"]["goal_pos"]
-        wps = agent_obs["waypoints"]
-        wps_lane_width = wps["lane_width"]
-        s = [ np.flatnonzero(wps_lane_width[i] > 0.1) for i in range(len(wps_lane_width))]
-        last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
+            last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints_index) if point_index >= 0 ]
+            dist_to_goal = [np.linalg.norm(wp - goal_pos) for wp in last_waypoints_pos]
+            index = np.argmin(dist_to_goal)
 
-        last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints_index) if point_index >= 0 ]
-        dist_to_goal = [np.linalg.norm(wp - goal_pos) for wp in last_waypoints_pos]
-        path_index = np.argmin(dist_to_goal)
+            return waypoint_path_index_candidate[index]
+        except:
+            print("failed to find the cloest path index to goal.")
+            print("Mission = {}".format(str(agent_obs["mission"])))
+            print("Waypoints = {}".format(str(wps)))
 
-        return path_index
+            return 0
 
     def get_speed_samples(self, n_sample):
         from scipy.stats import truncnorm

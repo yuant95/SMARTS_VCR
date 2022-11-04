@@ -32,6 +32,16 @@ pip-wheel-metadata/
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+smarts/*
+model_*
+*.png
+output/
+.evalENv/
+*.text
+*.zip
+trainingData/
+tatus
+=0.8.10
 
 # Installer logs
 pip-log.txt
