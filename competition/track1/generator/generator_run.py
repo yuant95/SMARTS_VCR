@@ -20,17 +20,17 @@ import numpy as np
 
 from copy_data import CopyData, DataStore
 # from policy import Policy, submitted_wrappers
-from filtering_policy import Policy, submitted_wrappers
+from filtering_policy_generator import Policy, submitted_wrappers
 
 from utils import load_config, merge_config, validate_config, write_output
 
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221102_10step")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_10step_planned")
 
 N_EVENT = 150
-STEP = 10
+STEP = 8
 
 _EVALUATION_CONFIG_KEYS = {
     "phase",
@@ -113,7 +113,7 @@ def run(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=True,
+        sumo_headless=False,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:
@@ -214,11 +214,11 @@ def _worker(input: bytes) -> None:
             queue_obs.put(observations)
             smoothed_waypoints = policy.get_smoothed_waypoints()
             queue_actions.put(actions)
-            queue_waypoints.put(smoothed_waypoints)
+            queue_waypoints.put(smoothed_waypoints.copy())
 
             observations, rewards, dones, infos = env.step(actions)
 
-            if  queue_obs.qsize() == STEP:
+            if dones["__all__"] or queue_obs.qsize() == STEP:
                 counter = event_counter(counter, observations)
                 # If the episode terminated, collision/ maximum steps etc
                 # label everything in the queue
@@ -233,7 +233,7 @@ def _worker(input: bytes) -> None:
                             counter=counter, 
                             step=i+1)
 
-                # Only label the 8th one if the episode is not terminated
+                # Only label the 10th one if the episode is not terminated
                 df = save_data(action=queue_actions.get(), 
                     old_observation=queue_obs.get(), 
                     observation=observations,
@@ -242,6 +242,7 @@ def _worker(input: bytes) -> None:
                     out_folder=out_folder, 
                     counter=counter, 
                     step=STEP)
+                
 
         df.to_csv(df_file)
         df.to_pickle(df_pkl_file)
@@ -284,7 +285,7 @@ def save_data(action, old_observation, observation, smoothed_waypoints,  df, out
             "action":[action[agent_id][:3]],
             "ego_pos": [ego_pos],
             "original_waypoints": [waypoints.flatten()],
-            "waypoints":[np.array(smoothed_waypoints[agent_id]).flatten()],
+            "waypoints":[np.array(list(smoothed_waypoints[agent_id])[:5]).flatten()],
             # "waypoints_lane_width": [old_agent_obs["waypoints"]["lane_width"][0][:5]], 
             "step": step
         }

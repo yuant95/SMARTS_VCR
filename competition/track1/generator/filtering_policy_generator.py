@@ -339,8 +339,12 @@ class Policy(BasePolicy):
             return 0
 
     def get_speed_samples(self, n_sample):
-        from scipy.stats import truncnorm
-        samples = 1 - truncnorm.rvs(0.0, 1.0, size=n_sample)
+        # from scipy.stats import truncnorm
+        # samples = 1 - truncnorm.rvs(0.0, 1.0, size=n_sample)
+        import numpy as np
+        #For generator only control speed 0.0, 1.0 and 1.2
+        speeds = [0.0, 1.0, 1.2]
+        samples = np.random.choice(speeds, 1, p=[0.3, 0.4, 0.3])
 
         return samples
 
