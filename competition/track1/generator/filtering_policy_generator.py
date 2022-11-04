@@ -62,13 +62,16 @@ class Policy(BasePolicy):
         covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
-        # model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
-        model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_02_22_53_39/model_step10_epoch60_2022_11_03_09_25_34"
+        model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
+        # model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_02_22_53_39/model_step10_epoch60_2022_11_03_09_25_34"
         self.model = torch.load(model_path)
         self.model.eval()
         self.smoothed_waypoints = {}
         self.waypoints_length = 18
         self.act_length = 8
+
+    def reset(self):
+        self.smoothed_waypoints = {}
 
     def get_smoothed_waypoints(self):
         ret ={}
@@ -284,6 +287,10 @@ class Policy(BasePolicy):
         #Check whether going to next waypoint exceed the speed limit
         goal_vec = pos - ego_pos
         goal_dist = np.linalg.norm(goal_vec)
+
+        if goal_dist == 0.0:
+            return pos, 0.0
+
         goal_speed = goal_dist / time_delta
         goal_dir = goal_vec/ goal_dist
 
