@@ -181,7 +181,8 @@ class Policy(BasePolicy):
         else:
 
             current_path_index = self.get_current_waypoint_path_index(agent_obs)
-            goal_path_index = self.get_cloest_path_index_to_goal(agent_obs)
+            # goal_path_index = self.get_cloest_path_index_to_goal(agent_obs)
+            goal_path_index = self.sample_path_index(agent_obs, n_sample=1)[0]
 
             # If the goal path index is 2 lane away, we only switch 1 lane at a time
             if abs(goal_path_index - current_path_index) > 1:
@@ -345,13 +346,23 @@ class Policy(BasePolicy):
 
             return 0
 
+    def sample_path_index(self, agent_obs, n_sample=1):
+        wps_lane_width = agent_obs["waypoints"]["lane_width"]
+        s = [ np.flatnonzero(wps_lane_width[i] > 0.1) for i in range(len(wps_lane_width))]
+        last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
+        waypoint_path_index_candidate = [i for i in range(len(wps_lane_width)) if last_waypoints_index[i] > 0]
+
+        samples = np.random.choice(waypoint_path_index_candidate, n_sample, p=[i/1.0 for i in range(waypoint_path_index_candidate)])
+        
+        return samples
+
     def get_speed_samples(self, n_sample):
         # from scipy.stats import truncnorm
         # samples = 1 - truncnorm.rvs(0.0, 1.0, size=n_sample)
         import numpy as np
         #For generator only control speed 0.0, 1.0 and 1.2
         speeds = [0.0, 1.0, 1.2]
-        samples = np.random.choice(speeds, 1, p=[0.3, 0.4, 0.3])
+        samples = np.random.choice(speeds, n_sample, p=[0.3, 0.4, 0.3])
 
         return samples
 
