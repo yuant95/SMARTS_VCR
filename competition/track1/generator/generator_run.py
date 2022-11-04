@@ -27,7 +27,7 @@ from utils import load_config, merge_config, validate_config, write_output
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_8step_planned")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_8step_planned_random")
 
 N_EVENT = 150
 STEP = 8
@@ -42,7 +42,7 @@ _EVALUATION_CONFIG_KEYS = {
 _DEFAULT_EVALUATION_CONFIG = dict(
     phase="track1",
     eval_episodes=2,
-    seed=42,
+    seed=20,
     scenarios=[
         "1_to_2lane_left_turn_c",
         # "1_to_2lane_left_turn_t",
@@ -53,7 +53,7 @@ _DEFAULT_EVALUATION_CONFIG = dict(
         # "3lane_cut_in",
         # "3lane_overtake",
     ],
-    bubble_env_evaluation_seeds=[6],
+    bubble_env_evaluation_seeds=[8],
 )
 _SUBMISSION_CONFIG_KEYS = {
     "img_meters",
@@ -218,22 +218,26 @@ def _worker(input: bytes) -> None:
             queue_waypoints.put(smoothed_waypoints.copy())
 
             observations, rewards, dones, infos = env.step(actions)
-
-            if dones["__all__"] or queue_obs.qsize() == STEP:
-                counter = event_counter(counter, observations)
+            counter = event_counter(counter, observations)
+            if dones["__all__"]:
                 # If the episode terminated, collision/ maximum steps etc
                 # label everything in the queue
-                if dones["__all__"]:
+                for i in range(STEP):
+                    df = save_data(action=queue_actions.queue[i], 
+                        old_observation=queue_obs.queue[i], 
+                        observation=observations,  
+                        smoothed_waypoints=queue_waypoints.queue[i], 
+                        df=df, 
+                        out_folder=out_folder, 
+                        counter=counter, 
+                        step=i+1)
+            elif counter["safe"]%8 == 0:
+                if queue_actions.qsize() > STEP:
                     for i in range(STEP-1):
-                        df = save_data(action=queue_actions.queue[i+1], 
-                            old_observation=queue_obs.queue[i+1], 
-                            observation=observations,  
-                            smoothed_waypoints=queue_waypoints.queue[i+1], 
-                            df=df, 
-                            out_folder=out_folder, 
-                            counter=counter, 
-                            step=i+1)
-
+                        queue_actions.get()
+                        queue_obs.get()
+                        queue_waypoints.get()     
+                
                 # Only label the 10th one if the episode is not terminated
                 df = save_data(action=queue_actions.get(), 
                     old_observation=queue_obs.get(), 
@@ -243,7 +247,6 @@ def _worker(input: bytes) -> None:
                     out_folder=out_folder, 
                     counter=counter, 
                     step=STEP)
-                
 
         df.to_csv(df_file)
         df.to_pickle(df_pkl_file)
