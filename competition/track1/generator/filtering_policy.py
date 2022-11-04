@@ -62,7 +62,8 @@ class Policy(BasePolicy):
         covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
-        model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
+        # model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
+        model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_02_22_53_39/model_step10_epoch60_2022_11_03_09_25_34"
         self.model = torch.load(model_path)
         self.model.eval()
         self.smoothed_waypoints = {}
@@ -95,18 +96,20 @@ class Policy(BasePolicy):
         return wrapped_act
 
     def get_current_waypoint_path_index(self, agent_obs):
-        ego_lane = agent_obs["ego"]["lane_index"]
+        ego_pos = agent_obs["ego"]["pos"]
+        waypoints_pos = agent_obs["waypoints"]["pos"]
+        waypoints_lane_indices = agent_obs["waypoints"]["lane_width"]
 
-        waypoints_lane_indices = agent_obs["waypoints"]["lane_index"]
+        min_dist = np.inf
+        min_index = -1
+        for i in range(len(waypoints_pos)):
+            if waypoints_lane_indices[i][0] > 0.0:
+                dist = np.linalg.norm(waypoints_pos[i][0] - ego_pos)
+                if dist <= min_dist:
+                    min_dist = dist
+                    min_index = i
 
-        for index, path in enumerate(waypoints_lane_indices):
-            last_waypoint_index = self.get_last_waypoint_index(agent_obs["waypoints"]["lane_width"][index])
-
-            if last_waypoint_index:
-                if ego_lane in path[:last_waypoint_index+1]:
-                    return index
-        
-        raise Exception("ego car is in lane {}, and no way points found for this lane.".format(ego_lane))
+        return i
 
     def get_waypoint_index_range(self, agent_obs, wps_path_index):
         # import numpy as np
@@ -193,10 +196,33 @@ class Policy(BasePolicy):
         
         next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[:2], speed_limit)
         action = [next_goal_pos[0], next_goal_pos[1], next_waypoint[2]]
-        action_samples = self.get_action_samples(1, action, agent_obs["ego"]["pos"])
-        action = action_samples[0]
+        # action_samples = self.get_action_samples(1, action, agent_obs["ego"]["pos"])
+        # action = action_samples[0]
 
-        #  update future waypoints based on given action
+        # #  update future waypoints based on given action
+        # self.smoothed_waypoints[agent_id] = self.get_smoothed_future_points(
+        #     agent_obs=agent_obs, 
+        #     action=action,
+        #     next_path_index=next_path_index,
+        #     n_points= 5)
+
+        scores = self.get_safe_scores(agent_obs, [action], next_path_index)
+        import torch
+        sm = torch.nn.Softmax()
+        prob = sm(scores) 
+
+        # import numpy as np
+        # action_index = np.random.choice(np.arange(0, len(action_samples)), p=sm(prob[:, 5]))
+
+        if prob[0,5] < prob[0,0]:
+            goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
+            action = agent_obs["ego"]["pos"][:2] + 0.005 * goal_dir[:2]
+            action = [action[0], action[1], next_waypoint[2]]
+        
+        # return action_samples[action_index]
+        return action
+
+    def get_smoothed_future_points(self, agent_obs, action, next_path_index, n_points=5):
         agent_obs_copy = {}
         agent_obs_copy["waypoints"] = agent_obs["waypoints"]
         agent_obs_copy["ego"]={}
@@ -209,18 +235,10 @@ class Policy(BasePolicy):
             r[-1] = 5 - len(waypoints_pos) + 1
             waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
 
-        self.smoothed_waypoints[agent_id] = get_smoothed_future_waypoints(waypoints=waypoints_pos, 
+        return get_smoothed_future_waypoints(waypoints=waypoints_pos, 
             start_pos=action[:2], 
-            n_points=5)
+            n_points=n_points)
 
-        # scores = self.get_safe_scores(agent_obs, [action], next_path_index)
-
-        # if scores[0,0] > 0.8:
-        #     goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
-        #     action = agent_obs["ego"]["pos"][:2] + 0.01 * goal_dir[:2]
-        #     action = [action[0], action[1], next_waypoint_heading[0]]
-        
-        return action
 
     def get_next_limited_action(self, ego_pos, pos, speed_limit):
         import numpy as np
@@ -319,8 +337,8 @@ class Policy(BasePolicy):
     def get_model_input(self, agent_obs, actions, path_index):
         import numpy as np
         import torch
-        waypoints = agent_obs["waypoints"]["pos"][path_index][:5]
-        waypoints[:, -1] = agent_obs["waypoints"]["heading"][path_index][:5]
+        # waypoints = agent_obs["waypoints"]["pos"][path_index][:5]
+        # waypoints[:, -1] = agent_obs["waypoints"]["heading"][path_index][:5]
         ego_pos = agent_obs["ego"]["pos"]
         ego_pos[-1] = agent_obs["ego"]["heading"]
 
@@ -329,6 +347,7 @@ class Policy(BasePolicy):
             input = []
             input.extend(action[:3])
             input.extend(ego_pos)
+            waypoints = np.array(self.get_smoothed_future_points(agent_obs=agent_obs, action=action, next_path_index=path_index, n_points=5))
             input.extend(waypoints.flatten())
             inputs.append(input)
 
