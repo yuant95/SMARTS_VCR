@@ -352,8 +352,10 @@ class Policy(BasePolicy):
         last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
         waypoint_path_index_candidate = [i for i in range(len(wps_lane_width)) if last_waypoints_index[i] > 0]
 
-        samples = np.random.choice(waypoint_path_index_candidate, n_sample, p=[i/1.0 for i in range(waypoint_path_index_candidate)])
-        
+        try:
+            samples = np.random.choice(waypoint_path_index_candidate, n_sample, p=[1.0/float(len(waypoint_path_index_candidate)) for i in range(len(waypoint_path_index_candidate))])
+        except:
+            return [0]
         return samples
 
     def get_speed_samples(self, n_sample):
