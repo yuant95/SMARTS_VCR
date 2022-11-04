@@ -27,7 +27,7 @@ from utils import load_config, merge_config, validate_config, write_output
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_10step_planned")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_8step_planned_random")
 
 N_EVENT = 150
 STEP = 8
@@ -42,18 +42,18 @@ _EVALUATION_CONFIG_KEYS = {
 _DEFAULT_EVALUATION_CONFIG = dict(
     phase="track1",
     eval_episodes=2,
-    seed=42,
+    seed=20,
     scenarios=[
-        "1_to_2lane_left_turn_c",
-        "1_to_2lane_left_turn_t",
-        "3lane_merge_multi_agent",
         "3lane_merge_single_agent",
-        # "3lane_cruise_multi_agent",
         "3lane_cruise_single_agent",
+        "1_to_2lane_left_turn_t",
+        "1_to_2lane_left_turn_c",
+        "3lane_merge_multi_agent",
+        # "3lane_cruise_multi_agent",
         "3lane_cut_in",
         "3lane_overtake",
     ],
-    bubble_env_evaluation_seeds=[6],
+    bubble_env_evaluation_seeds=[8],
 )
 _SUBMISSION_CONFIG_KEYS = {
     "img_meters",
@@ -208,6 +208,7 @@ def _worker(input: bytes) -> None:
         queue_obs = queue.Queue()
         queue_actions = queue.Queue()
         queue_waypoints = queue.Queue()
+        policy.reset()
         while not dones["__all__"]:
             # old_observations = observations
             actions = policy.act(observations)
@@ -243,6 +244,9 @@ def _worker(input: bytes) -> None:
                     counter=counter, 
                     step=STEP)
                 
+                queue_actions.queue.clear()
+                queue_obs.queue.clear()
+                queue_waypoints.queue.clear()
 
         df.to_csv(df_file)
         df.to_pickle(df_pkl_file)
