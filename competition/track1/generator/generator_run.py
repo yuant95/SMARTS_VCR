@@ -27,7 +27,7 @@ from utils import load_config, merge_config, validate_config, write_output
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_10step_planned")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_8step_planned")
 
 N_EVENT = 150
 STEP = 8
@@ -45,13 +45,13 @@ _DEFAULT_EVALUATION_CONFIG = dict(
     seed=42,
     scenarios=[
         "1_to_2lane_left_turn_c",
-        "1_to_2lane_left_turn_t",
-        "3lane_merge_multi_agent",
-        "3lane_merge_single_agent",
-        # "3lane_cruise_multi_agent",
-        "3lane_cruise_single_agent",
-        "3lane_cut_in",
-        "3lane_overtake",
+        # "1_to_2lane_left_turn_t",
+        # "3lane_merge_multi_agent",
+        # "3lane_merge_single_agent",
+        # # "3lane_cruise_multi_agent",
+        # "3lane_cruise_single_agent",
+        # "3lane_cut_in",
+        # "3lane_overtake",
     ],
     bubble_env_evaluation_seeds=[6],
 )
@@ -139,15 +139,15 @@ def run(config):
     forkserver_available = "forkserver" in mp.get_all_start_methods()
     start_method = "forkserver" if forkserver_available else "spawn"
     mp_context = mp.get_context(start_method)
-    with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
-        futures = [
-            pool.submit(
-                _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
-            )
-            for env_name, env_ctor in env_ctors.items()
-        ]
-    # for env_name, env_ctor in env_ctors.items():
-    #     _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
+    # with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
+    #     futures = [
+    #         pool.submit(
+    #             _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
+    #         )
+    #         for env_name, env_ctor in env_ctors.items()
+    #     ]
+    for env_name, env_ctor in env_ctors.items():
+        _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
 
 
     # rank = score.compute()
@@ -208,6 +208,7 @@ def _worker(input: bytes) -> None:
         queue_obs = queue.Queue()
         queue_actions = queue.Queue()
         queue_waypoints = queue.Queue()
+        policy.reset()
         while not dones["__all__"]:
             # old_observations = observations
             actions = policy.act(observations)
