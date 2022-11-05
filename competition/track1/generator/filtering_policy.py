@@ -64,7 +64,8 @@ class Policy(BasePolicy):
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
         # model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
-        model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_04_12_19_19/model_step10_epoch30_2022_11_04_14_42_44"
+        # model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_04_12_19_19/model_step10_epoch30_2022_11_04_14_42_44"
+        model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_05_00_38_03/model_step10_epoch30_2022_11_05_07_09_39"
         self.model = torch.load(model_path)
         self.model.eval()
         self.smoothed_waypoints = {}
