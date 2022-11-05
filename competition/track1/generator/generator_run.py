@@ -27,7 +27,7 @@ from utils import load_config, merge_config, validate_config, write_output
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221104_8step_planned_random")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221105_8step_planned_random2")
 
 N_EVENT = 150
 STEP = 8
@@ -45,13 +45,13 @@ _DEFAULT_EVALUATION_CONFIG = dict(
     seed=20,
     scenarios=[
         "1_to_2lane_left_turn_c",
-        # "1_to_2lane_left_turn_t",
-        # "3lane_merge_multi_agent",
-        # "3lane_merge_single_agent",
-        # # "3lane_cruise_multi_agent",
-        # "3lane_cruise_single_agent",
-        # "3lane_cut_in",
-        # "3lane_overtake",
+        "1_to_2lane_left_turn_t",
+        "3lane_merge_multi_agent",
+        "3lane_merge_single_agent",
+        # "3lane_cruise_multi_agent",
+        "3lane_cruise_single_agent",
+        "3lane_cut_in",
+        "3lane_overtake",
     ],
     bubble_env_evaluation_seeds=[8],
 )
@@ -113,7 +113,7 @@ def run(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=False,
+        sumo_headless=True,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:
@@ -139,15 +139,15 @@ def run(config):
     forkserver_available = "forkserver" in mp.get_all_start_methods()
     start_method = "forkserver" if forkserver_available else "spawn"
     mp_context = mp.get_context(start_method)
-    # with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
-    #     futures = [
-    #         pool.submit(
-    #             _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
-    #         )
-    #         for env_name, env_ctor in env_ctors.items()
-    #     ]
-    for env_name, env_ctor in env_ctors.items():
-        _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
+    with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
+        futures = [
+            pool.submit(
+                _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
+            )
+            for env_name, env_ctor in env_ctors.items()
+        ]
+    # for env_name, env_ctor in env_ctors.items():
+    #     _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
 
 
     # rank = score.compute()
@@ -222,23 +222,19 @@ def _worker(input: bytes) -> None:
             if dones["__all__"]:
                 # If the episode terminated, collision/ maximum steps etc
                 # label everything in the queue
-                for i in range(STEP):
-                    df = save_data(action=queue_actions.queue[i], 
-                        old_observation=queue_obs.queue[i], 
+                i = 0 
+                while(not queue_actions.empty()):
+                    df = save_data(action=queue_actions.get(), 
+                        old_observation=queue_obs.get(), 
                         observation=observations,  
-                        smoothed_waypoints=queue_waypoints.queue[i], 
+                        smoothed_waypoints=queue_waypoints.get(), 
                         df=df, 
                         out_folder=out_folder, 
                         counter=counter, 
-                        step=i+1)
+                        step=i)
+                    i+=1
             elif counter["safe"]%8 == 0:
-                if queue_actions.qsize() > STEP:
-                    for i in range(STEP-1):
-                        queue_actions.get()
-                        queue_obs.get()
-                        queue_waypoints.get()     
-                
-                # Only label the 10th one if the episode is not terminated
+                # Only label the first one if the episode is not terminated
                 df = save_data(action=queue_actions.get(), 
                     old_observation=queue_obs.get(), 
                     observation=observations,
@@ -246,7 +242,11 @@ def _worker(input: bytes) -> None:
                     df=df, 
                     out_folder=out_folder, 
                     counter=counter, 
-                    step=STEP)
+                    step=0)
+
+                queue_actions.queue.clear()
+                queue_obs.queue.clear()
+                queue_waypoints.queue.clear()  
 
         df.to_csv(df_file)
         df.to_pickle(df_pkl_file)
