@@ -58,17 +58,22 @@ class Policy(BasePolicy):
         import gym
         import numpy as np
         import torch
+        import queue
 
         covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
-        model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
-        # model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_02_22_53_39/model_step10_epoch60_2022_11_03_09_25_34"
+        # model_path = Path(__file__).absolute().parents[0] / "model_2022_10_31_15_12_27"
+        model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_04_12_19_19/model_step10_epoch30_2022_11_04_14_42_44"
         self.model = torch.load(model_path)
         self.model.eval()
         self.smoothed_waypoints = {}
         self.waypoints_length = 18
         self.act_length = 8
+        self.hist_len = 5
+        self.current_goal_path = {}
+        self.score_history = {}
+        self.goal_path_history = {}
 
     def reset(self):
         self.smoothed_waypoints = {}
@@ -174,16 +179,37 @@ class Policy(BasePolicy):
 
     def get_next_goal_pos(self, agent_obs, agent_id):
         import numpy as np
+        import queue
 
+        # Only change lane every 5 steps. 
         current_path_index = self.get_current_waypoint_path_index(agent_obs)
         goal_path_index = self.get_cloest_path_index_to_goal(agent_obs)
 
         # If the goal path index is 2 lane away, we only switch 1 lane at a time
-        if abs(goal_path_index - current_path_index) > 1:
-            next_path_index = current_path_index + np.sign(goal_path_index - current_path_index)
-        else:
-            next_path_index = goal_path_index
+        # if abs(goal_path_index - current_path_index) > 1:
+        #     next_path_index = current_path_index + np.sign(goal_path_index - current_path_index)
+        # else:
+        #     next_path_index = goal_path_index
 
+        if agent_id not in self.current_goal_path:
+            self.current_goal_path[agent_id] = goal_path_index
+
+        if agent_id not in self.goal_path_history:
+            self.goal_path_history[agent_id] = queue.Queue()
+
+        if agent_id not in self.score_history:
+            self.score_history[agent_id] = queue.Queue()
+        
+        self.goal_path_history[agent_id].put(goal_path_index)
+        if self.goal_path_history[agent_id].qsize() > self.hist_len:
+            self.goal_path_history[agent_id].get()
+
+        if list(self.goal_path_history[agent_id].queue).count(self.goal_path_history[agent_id].queue[-1]) == self.goal_path_history[agent_id].qsize():
+            if self.current_goal_path[agent_id]!= goal_path_index:
+                self.current_goal_path[agent_id] = goal_path_index
+
+        next_path_index = self.current_goal_path[agent_id]
+        
         # Get the next closest waypoints on the next path we decided
         wp_index, wp_last_index = self.get_waypoint_index_range(agent_obs=agent_obs, wps_path_index=next_path_index)
 
@@ -203,34 +229,128 @@ class Policy(BasePolicy):
             r = np.ones(len(waypoints_pos))
             r[-1] = self.waypoints_length - len(waypoints_pos) + 1
             waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
-
-        sampled_speed = self.get_speed_samples(n_sample=20)
-        sampled_waypoints = np.array([
-            get_smoothed_future_waypoints(waypoints=waypoints_pos, 
+        
+        planned_path = get_smoothed_future_waypoints(waypoints=waypoints_pos, 
             start_pos=agent_obs["ego"]["pos"][:2], 
             n_points=self.waypoints_length,
-            speed=sampled_speed[i]) for i in range(len(sampled_speed))
-            ])
+            speed=1.0)
 
-        sampled_actions = [] 
-        for i in range(len(sampled_speed)):
-            next_waypoint = sampled_waypoints[i][0]
-            next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[:2], speed_limit)
-            sampled_actions.append([next_goal_pos[0], next_goal_pos[1], next_waypoint[2]])
+        action = planned_path[0]
+        scores = self.get_safe_scores(agent_obs, [action], [planned_path])
+        self.score_history[agent_id].put(scores[0].numpy())
+        past_scores_size = self.score_history[agent_id].qsize()
+        if past_scores_size > self.hist_len:
+            self.score_history[agent_id].get()
 
-        scores = self.get_safe_scores(agent_obs, sampled_actions, sampled_waypoints)
-        import torch
-        sm = torch.nn.Softmax()
-        prob = sm(scores[:, -1])
-        speeds = [i for i in range(len(sampled_speed))]
-        sample_index = np.random.choice(speeds, 1, p=prob)[0]
-        
-        # if scores[0,0] > 0.8:
-        #     goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
-        #     action = agent_obs["ego"]["pos"][:2] + 0.01 * goal_dir[:2]
-        #     action = [action[0], action[1], next_waypoint_heading[0]]
+        past_scores_size = self.score_history[agent_id].qsize()
+
+        weights = np.array([np.power(0.6, past_scores_size - i) for i in range(past_scores_size)])
+        average_scores = np.average(np.array(list(self.score_history[agent_id].queue)), weights = weights, axis=0)
+
+        # if average_scores[0] > 0.3:
+        accelerate = self.accelerate(agent_obs=agent_obs)
+        if not accelerate:
+            prob_collision = average_scores[0]
+            speed = 1/(1 + np.exp(-(1-prob_collision)*20 +14))
+        else:
+            speed = 1.0
+
+        goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
+        action[:2] = agent_obs["ego"]["pos"][:2] + speed * goal_dir[:2]
+
+        # HACK: if no cars in the way of the next 5 waypoints, drive. That means
+        # The collision prob is from back crash
+        return action
+
+        # sampled_speed = self.get_speed_samples(n_sample=20)
+        # sampled_waypoints = np.array([
+        #     get_smoothed_future_waypoints(waypoints=waypoints_pos, 
+        #     start_pos=agent_obs["ego"]["pos"][:2], 
+        #     n_points=self.waypoints_length,
+        #     speed=sampled_speed[i]) for i in range(len(sampled_speed))
+        #     ])
+
+        # sampled_actions = [] 
+        # for i in range(len(sampled_speed)):
+        #     next_waypoint = sampled_waypoints[i][0]
+        #     next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[:2], speed_limit)
+        #     sampled_actions.append([next_goal_pos[0], next_goal_pos[1], next_waypoint[2]])
+
+        # scores = self.get_safe_scores(agent_obs, sampled_actions, sampled_waypoints)
+        # import torch
+        # sm = torch.nn.Softmax()
+        # prob = sm(scores[:, -1])
+        # speeds = [i for i in range(len(sampled_speed))]
+        # sample_index = np.random.choice(speeds, 1, p=prob)[0]
     
-        return sampled_actions[sample_index]
+        # return sampled_actions[sample_index]
+
+    def accelerate(self, agent_obs):
+        obstacles = self.get_front_obstacles(agent_obs=agent_obs)
+
+        if len(obstacles)> 0:
+            return False
+        else:
+            return True
+    
+    def get_front_obstacles(self, agent_obs: Dict[str, Dict[str, Any]]):
+        rel_angle_th = np.pi * 40 / 180
+        rel_heading_th = np.pi * 179 / 180
+
+        # Ego's position and heading with respect to the map's coordinate system.
+        # Note: All angles returned by smarts is with respect to the map's coordinate system.
+        #       On the map, angle is zero at positive y axis, and increases anti-clockwise.
+        ego = agent_obs["ego"]
+        ego_heading = (ego["heading"] + np.pi) % (2 * np.pi) - np.pi
+        ego_pos = ego["pos"]
+
+        # Set obstacle distance threshold using 1-second rule
+        obstacle_dist_th = 10 * 1.0
+
+        # Get neighbors.
+        nghbs = agent_obs["neighbors"]
+
+        # Filter neighbors by distance.
+        nghbs_state = [
+            (nghb_idx, np.linalg.norm(nghbs["pos"][nghb_idx] - ego_pos)) for nghb_idx in range(len(nghbs["pos"]))
+        ]
+        nghbs_state = [
+            nghb_state
+            for nghb_state in nghbs_state
+            if nghb_state[1] <= obstacle_dist_th
+        ]
+        if len(nghbs_state) == 0:
+            return nghbs_state
+
+        # Filter neighbors within ego's visual field.
+        obstacles = []
+        for nghb_state in nghbs_state:
+            # Neighbors's angle with respect to the ego's position.
+            # Note: In np.angle(), angle is zero at positive x axis, and increases anti-clockwise.
+            #       Hence, map_angle = np.angle() - π/2
+            nghb_idx = nghb_state[0]
+            rel_pos = np.array(nghbs["pos"][nghb_idx]) - ego_pos
+            obstacle_angle = np.angle(rel_pos[0] + 1j * rel_pos[1]) - np.pi / 2
+            obstacle_angle = (obstacle_angle + np.pi) % (2 * np.pi) - np.pi
+            # Relative angle is the angle correction required by ego agent to face the obstacle.
+            rel_angle = obstacle_angle - ego_heading
+            rel_angle = (rel_angle + np.pi) % (2 * np.pi) - np.pi
+            if abs(rel_angle) <= rel_angle_th:
+                obstacles.append(nghb_state)
+        nghbs_state = obstacles
+        if len(nghbs_state) == 0:
+            return nghbs_state
+
+        # Filter neighbors by their relative heading to that of ego's heading.
+        nghbs_state = [
+            nghb_state
+            for nghb_state in nghbs_state
+            #TODO: check whether we need clip here
+            if abs(nghbs["heading"][nghb_state[0]] - (ego["heading"])) <= rel_heading_th
+        ]
+
+        return nghbs_state
+        
     
     def get_smoothed_future_points(self, agent_obs, action, next_path_index, n_points=5, speed=1.0):
         agent_obs_copy = {}
