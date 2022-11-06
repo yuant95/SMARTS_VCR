@@ -153,7 +153,7 @@ class Policy(BasePolicy):
         
         # Find the next way points given that the heading is smaller than 45 degree
         max_angle = 35 / 180 * np.pi
-        switch_lane_max_angle = 20 / 180 * np.pi
+        switch_lane_max_angle = 35 / 180 * np.pi
 
         last_waypoint_index = self.get_last_waypoint_index(agent_obs["waypoints"]["lane_width"][wps_path_index])
 
@@ -230,11 +230,13 @@ class Policy(BasePolicy):
         goal_pos = agent_obs["mission"]["goal_pos"][:2]
         ego_pos = agent_obs["ego"]["pos"][:2]
 
-        if (wp_last_index+1 - wp_index) < self.waypoints_length or (np.linalg.norm(ego_pos-goal_pos) < 10):
+        # if (wp_last_index+1 - wp_index) < self.waypoints_length or (np.linalg.norm(ego_pos-goal_pos) < 10):
+        #     waypoints_pos = np.append(waypoints_pos, [agent_obs["mission"]["goal_pos"][:2]], axis=0)
+        #     r = np.ones(len(waypoints_pos))
+        #     r[-1] = self.waypoints_length - len(waypoints_pos) + 1
+        #     waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
+        if len(waypoints_pos) < 1:
             waypoints_pos = np.append(waypoints_pos, [agent_obs["mission"]["goal_pos"][:2]], axis=0)
-            r = np.ones(len(waypoints_pos))
-            r[-1] = self.waypoints_length - len(waypoints_pos) + 1
-            waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
         
         planned_path = get_smoothed_future_waypoints(waypoints=waypoints_pos, 
             start_pos=agent_obs["ego"]["pos"][:2], 

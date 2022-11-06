@@ -72,10 +72,13 @@ class Policy(BasePolicy):
         self.current_goal_path = {}
         self.score_history = {}
         self.goal_path_history = {}
-        self.hist_len = 5
+        self.hist_len = 10
 
     def reset(self):
         self.smoothed_waypoints = {}
+        # self.current_goal_path = {}
+        self.score_history = {}
+        self.goal_path_history = {}
 
     def get_smoothed_waypoints(self):
         ret ={}
@@ -152,8 +155,8 @@ class Policy(BasePolicy):
         head_wps = (head_wps + np.pi) % (2 * np.pi) - np.pi 
         
         # Find the next way points given that the heading is smaller than 45 degree
-        max_angle = 35 / 180 * np.pi
-        switch_lane_max_angle = 20 / 180 * np.pi
+        max_angle = 40 / 180 * np.pi
+        switch_lane_max_angle = 40 / 180 * np.pi
 
         last_waypoint_index = self.get_last_waypoint_index(agent_obs["waypoints"]["lane_width"][wps_path_index])
 
@@ -190,27 +193,23 @@ class Policy(BasePolicy):
             # if agent_id not in self.score_history:
             #     self.score_history[agent_id] = queue.Queue()
 
-            # current_path_index = self.get_current_waypoint_path_index(agent_obs)
+            current_path_index = self.get_current_waypoint_path_index(agent_obs)
+            next_path_index = current_path_index
             # goal_path_index = self.get_cloest_path_index_to_goal(agent_obs)
             goal_path_index = self.sample_path_index(agent_obs, n_sample=1)[0]
 
-            if agent_id not in self.current_goal_path:
-                self.current_goal_path[agent_id] = goal_path_index
+            # if agent_id not in self.current_goal_path:
+            #     self.current_goal_path[agent_id] = goal_path_index
 
-            # # If the goal path index is 2 lane away, we only switch 1 lane at a time
-            # if abs(goal_path_index - current_path_index) > 1:
-            #     next_path_index = current_path_index + np.sign(goal_path_index - current_path_index)
-            # else:
-            #     next_path_index = goal_path_index
-
+            if agent_id not in self.score_history:
+                self.score_history[agent_id] = queue.Queue()
+            
             self.goal_path_history[agent_id].put(goal_path_index)
             if self.goal_path_history[agent_id].qsize() > self.hist_len:
-                self.goal_path_history[agent_id].queue.clear()
+                self.goal_path_history[agent_id].get()
 
-                if self.current_goal_path[agent_id]!= goal_path_index:
-                    self.current_goal_path[agent_id] = goal_path_index
-
-            next_path_index = self.current_goal_path[agent_id]
+                if next_path_index!= goal_path_index:
+                    next_path_index = goal_path_index
 
             # Get the next closest waypoints on the next path we decided
             wp_index, wp_last_index = self.get_waypoint_index_range(agent_obs=agent_obs, wps_path_index=next_path_index)
@@ -227,21 +226,35 @@ class Policy(BasePolicy):
             #         - whether the next loaction maintain the safe distance of the other car
             # 3. If collision, then cut the travel distance to half, and check again, recursively till the speed ~= 0
             waypoints_pos =  agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index+1, :2]
-            if (wp_last_index+1 - wp_index) < self.waypoints_length:
-                r = np.ones(len(waypoints_pos))
-                r[-1] = self.waypoints_length - len(waypoints_pos) + 1
-                waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
+            goal_pos = agent_obs["mission"]["goal_pos"][:2]
+            ego_pos = agent_obs["ego"]["pos"][:2]
 
-            sampled_speed = self.get_speed_samples(n_sample=1)
+            # if (wp_last_index+1 - wp_index) < self.waypoints_length or (np.linalg.norm(ego_pos-goal_pos) < 10):
+            #     waypoints_pos = np.append(waypoints_pos, [agent_obs["mission"]["goal_pos"][:2]], axis=0)
+            #     r = np.ones(len(waypoints_pos))
+            #     r[-1] = self.waypoints_length - len(waypoints_pos) + 1
+            #     waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
+            if (np.linalg.norm(ego_pos-goal_pos) < 10):
+                waypoints_pos = np.append(waypoints_pos, [goal_pos], axis=0)
+
+
+            # sampled_speed = self.get_speed_samples(n_sample=1)
+            sampled_speed = [1.0]
             planned_waypoints = get_smoothed_future_waypoints(waypoints=waypoints_pos, 
                 start_pos=agent_obs["ego"]["pos"][:2], 
                 n_points=self.waypoints_length,
                 speed=sampled_speed[0])
             
+            if np.linalg.norm(np.array(planned_waypoints[2]) - np.array(planned_waypoints[1])) > 1.4:
+                print("something wrong")
+
+
             import queue
             self.smoothed_waypoints[agent_id] = queue.Queue()
             for p in planned_waypoints:
                 self.smoothed_waypoints[agent_id].put(p)
+
+            
 
             next_waypoint = self.smoothed_waypoints[agent_id].get()
             next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[:2], speed_limit)
