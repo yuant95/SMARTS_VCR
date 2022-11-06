@@ -26,6 +26,9 @@ def submitted_wrappers():
         List[wrappers]: List of wrappers. Default is empty list [].
     """
 
+    from action import Action as DiscreteAction
+    from observation import Concatenate, FilterObs, SaveObs
+
     from smarts.core.controllers import ActionSpaceType
     from smarts.env.wrappers.format_action import FormatAction
     from smarts.env.wrappers.format_obs import FormatObs
@@ -35,6 +38,7 @@ def submitted_wrappers():
     wrappers = [
         FormatObs,
         lambda env: FormatAction(env=env, space=ActionSpaceType["TargetPose"]),
+        # lambda env: HistoryStack(env=env, num_stack=5),
         # SaveObs,
         # DiscreteAction,
         # FilterObs,
@@ -55,20 +59,18 @@ class Policy(BasePolicy):
         import gym
         import numpy as np
         import torch
-        import queue
 
-        covar = 1.0
         # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
         model_path = Path(__file__).absolute().parents[0] / "model_step10_epoch30_2022_11_04_14_42_44"
-        # model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_04_12_19_19/model_step10_epoch30_2022_11_04_14_42_44"
+        # model_path = "/home/yuantian/Desktop/SMARTS_VCR/competition/track1/generator/model_step10_epoch30_2022_11_04_14_42_44"
         self.model = torch.load(model_path)
         self.model.eval()
         self.smoothed_waypoints = {}
         self.waypoints_length = 18
         self.act_length = 8
-        self.hist_len = 5
-        self.current_goal_path = {}
+        self.hist_len = 20
+        # self.current_goal_path = {}
         self.score_history = {}
         self.goal_path_history = {}
 
@@ -180,6 +182,7 @@ class Policy(BasePolicy):
 
         # Only change lane every 5 steps. 
         current_path_index = self.get_current_waypoint_path_index(agent_obs)
+        next_path_index = current_path_index
         goal_path_index = self.get_cloest_path_index_to_goal(agent_obs)
 
         # If the goal path index is 2 lane away, we only switch 1 lane at a time
@@ -188,8 +191,8 @@ class Policy(BasePolicy):
         # else:
         #     next_path_index = goal_path_index
 
-        if agent_id not in self.current_goal_path:
-            self.current_goal_path[agent_id] = goal_path_index
+        # if agent_id not in self.current_goal_path:
+        #     self.current_goal_path[agent_id] = goal_path_index
 
         if agent_id not in self.goal_path_history:
             self.goal_path_history[agent_id] = queue.Queue()
@@ -201,11 +204,13 @@ class Policy(BasePolicy):
         if self.goal_path_history[agent_id].qsize() > self.hist_len:
             self.goal_path_history[agent_id].get()
 
-        if list(self.goal_path_history[agent_id].queue).count(self.goal_path_history[agent_id].queue[-1]) == self.goal_path_history[agent_id].qsize():
-            if self.current_goal_path[agent_id]!= goal_path_index:
-                self.current_goal_path[agent_id] = goal_path_index
+        # goal_path_history = agent_obs["ego"]["goal_path_history"]
 
-        next_path_index = self.current_goal_path[agent_id]
+        if list(self.goal_path_history[agent_id].queue).count(self.goal_path_history[agent_id].queue[-1]) == self.hist_len:
+            if current_path_index!= self.goal_path_history[agent_id].queue[-1]:
+                next_path_index = self.goal_path_history[agent_id].queue[-1]
+
+        # next_path_index = self.current_goal_path[agent_id]
         
         # Get the next closest waypoints on the next path we decided
         wp_index, wp_last_index = self.get_waypoint_index_range(agent_obs=agent_obs, wps_path_index=next_path_index)
@@ -222,7 +227,11 @@ class Policy(BasePolicy):
         #         - whether the next loaction maintain the safe distance of the other car
         # 3. If collision, then cut the travel distance to half, and check again, recursively till the speed ~= 0
         waypoints_pos =  agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index+1, :2]
-        if (wp_last_index+1 - wp_index) < self.waypoints_length:
+        goal_pos = agent_obs["mission"]["goal_pos"][:2]
+        ego_pos = agent_obs["ego"]["pos"][:2]
+
+        if (wp_last_index+1 - wp_index) < self.waypoints_length or (np.linalg.norm(ego_pos-goal_pos) < 10):
+            waypoints_pos = np.append(waypoints_pos, [agent_obs["mission"]["goal_pos"][:2]], axis=0)
             r = np.ones(len(waypoints_pos))
             r[-1] = self.waypoints_length - len(waypoints_pos) + 1
             waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
@@ -246,17 +255,16 @@ class Policy(BasePolicy):
 
         # if average_scores[0] > 0.3:
         accelerate = self.accelerate(agent_obs=agent_obs)
-        if not accelerate:
+        if accelerate < 0:
             prob_collision = average_scores[0]
             speed = 1/(1 + np.exp(-(1-prob_collision)*20 +14))
         else:
-            speed = 1.0
+            speed = accelerate
 
         goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
         action[:2] = agent_obs["ego"]["pos"][:2] + speed * goal_dir[:2]
+        action[:2] = agent_obs["ego"]["pos"][:2] + speed * goal_dir[:2]
 
-        # HACK: if no cars in the way of the next 5 waypoints, drive. That means
-        # The collision prob is from back crash
         return action
 
         # sampled_speed = self.get_speed_samples(n_sample=20)
@@ -283,16 +291,27 @@ class Policy(BasePolicy):
         # return sampled_actions[sample_index]
 
     def accelerate(self, agent_obs):
-        obstacles = self.get_front_obstacles(agent_obs=agent_obs)
-
-        if len(obstacles)> 0:
-            return False
+        obstacles = self.get_obstacles(agent_obs=agent_obs)
+        if len(obstacles) == 0:
+            return 1.1
         else:
-            return True
+            dist = np.array([state[1] for state in obstacles])
+            front_obs = np.count_nonzero(dist > 0)
+            back_obs = np.count_nonzero(dist <= 0)
+
+            if front_obs:
+                return -1
+            elif back_obs:
+                if np.count_nonzero(dist > -5):
+                    return 2.5
+                else:
+                    return 1.1
+            else: 
+                return -1
     
-    def get_front_obstacles(self, agent_obs: Dict[str, Dict[str, Any]]):
+    def get_obstacles(self, agent_obs: Dict[str, Dict[str, Any]]):
         rel_angle_th = np.pi * 40 / 180
-        rel_heading_th = np.pi * 179 / 180
+        rel_heading_th = np.pi * 170 / 180
 
         # Ego's position and heading with respect to the map's coordinate system.
         # Note: All angles returned by smarts is with respect to the map's coordinate system.
@@ -302,14 +321,14 @@ class Policy(BasePolicy):
         ego_pos = ego["pos"]
 
         # Set obstacle distance threshold using 1-second rule
-        obstacle_dist_th = 10 * 1.0
+        obstacle_dist_th = 12 * 1.0
 
         # Get neighbors.
         nghbs = agent_obs["neighbors"]
 
         # Filter neighbors by distance.
         nghbs_state = [
-            (nghb_idx, np.linalg.norm(nghbs["pos"][nghb_idx] - ego_pos)) for nghb_idx in range(len(nghbs["pos"]))
+            [nghb_idx, np.linalg.norm(nghbs["pos"][nghb_idx] - ego_pos)] for nghb_idx in range(len(nghbs["pos"]))
         ]
         nghbs_state = [
             nghb_state
@@ -334,6 +353,10 @@ class Policy(BasePolicy):
             rel_angle = (rel_angle + np.pi) % (2 * np.pi) - np.pi
             if abs(rel_angle) <= rel_angle_th:
                 obstacles.append(nghb_state)
+            if abs(rel_angle) >= np.pi - rel_angle_th:
+                nghb_state[1] = -nghb_state[1]
+                obstacles.append(nghb_state)
+
         nghbs_state = obstacles
         if len(nghbs_state) == 0:
             return nghbs_state
@@ -418,8 +441,8 @@ class Policy(BasePolicy):
             wps_pos = wps["pos"]
             wps_lane_width = wps["lane_width"]
             s = [ np.flatnonzero(wps_lane_width[i] > 0.1) for i in range(len(wps_lane_width))]
-            last_waypoints_index = [s[i][-1] if np.any(s[i]) else -1 for i in range(len(s))]
-            waypoint_path_index_candidate = [i for i in range(len(wps_pos)) if last_waypoints_index[i] > 0]
+            last_waypoints_index = [s[i][-1] if s[i].size else -1 for i in range(len(s))]
+            waypoint_path_index_candidate = [i for i in range(len(wps_pos)) if last_waypoints_index[i] >= 0]
 
             last_waypoints_pos = [wps["pos"][index][point_index] for index,point_index in enumerate(last_waypoints_index) if point_index >= 0 ]
             dist_to_goal = [np.linalg.norm(wp - goal_pos) for wp in last_waypoints_pos]
