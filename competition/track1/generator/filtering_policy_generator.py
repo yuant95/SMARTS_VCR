@@ -234,9 +234,8 @@ class Policy(BasePolicy):
             #     r = np.ones(len(waypoints_pos))
             #     r[-1] = self.waypoints_length - len(waypoints_pos) + 1
             #     waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
-            if (np.linalg.norm(ego_pos-goal_pos) < 10):
-                waypoints_pos = np.append(waypoints_pos, [goal_pos], axis=0)
-
+            if len(waypoints_pos) < 1:
+                waypoints_pos = np.append(waypoints_pos, [agent_obs["mission"]["goal_pos"][:2]], axis=0)
 
             # sampled_speed = self.get_speed_samples(n_sample=1)
             sampled_speed = [1.0]

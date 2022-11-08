@@ -60,19 +60,17 @@ class Policy(BasePolicy):
         import numpy as np
         import torch
 
-        # self._pos_space = gym.spaces.Box(low=np.array([-covar, -covar]), high=np.array([covar, covar]), dtype=np.float32)
         self._pos_space = gym.spaces.Box(low=np.array([0]), high=np.array([1]), dtype=np.float32)
-        model_path = Path(__file__).absolute().parents[0] / "model_step10_epoch30_2022_11_04_14_42_44"
-        # model_path = "/home/yuantian/Desktop/SMARTS_VCR/competition/track1/generator/model_step10_epoch30_2022_11_04_14_42_44"
+        model_path = Path(__file__).absolute().parents[0] / "model_step10_epoch_15_2022_11_06_11_31_42"
         self.model = torch.load(model_path)
         self.model.eval()
         self.smoothed_waypoints = {}
         self.waypoints_length = 18
         self.act_length = 8
-        self.hist_len = 20
-        # self.current_goal_path = {}
+        self.hist_len = 10
         self.score_history = {}
         self.goal_path_history = {}
+        self.axis_priority = -1
 
     def reset(self):
         self.smoothed_waypoints = {}
@@ -99,7 +97,13 @@ class Policy(BasePolicy):
         for agent_id, agent_obs in obs.items():
             # action = self._action_space.sample()
             # wrapped_act.update({agent_id: action})
-            action = self.get_next_goal_pos(agent_obs, agent_id)
+            try:
+                action = self.get_next_goal_pos(agent_obs, agent_id)
+            except Exception as e:
+                print("Exception {}".format(str(e)))
+                print("Using current pos as action. ")
+                action = agent_obs["ego"]["pos"]
+                action[2] = agent_obs["ego"]["heading"]
             
             action = np.array(
                         [action[0], action[1], action[2], time_delta], dtype=np.float32
@@ -143,15 +147,13 @@ class Policy(BasePolicy):
         # Distance of vehicle from way points
         vec_wps = [wp - ego_pos for wp in wps]
         dist_wps = [np.linalg.norm(vec_wp) for vec_wp in vec_wps]
-        # wp_index = np.argmin(dist_wps)
-        # closest_wp = wps[wp_index]
 
         # Heading angle of each waypoints
         dir_wps = [np.array(vec_wps[i]) / (dist_wps[i]+0.00001) for i in range(len(vec_wps))]
         head_wps = np.array([np.arctan2(-dir_wp[0], dir_wp[1]) - ego_head for dir_wp in dir_wps])
         head_wps = (head_wps + np.pi) % (2 * np.pi) - np.pi 
         
-        # Find the next way points given that the heading is smaller than 45 degree
+        # Find the next way points given that the heading is smaller than 35 degree
         max_angle = 35 / 180 * np.pi
         switch_lane_max_angle = 35 / 180 * np.pi
 
@@ -185,15 +187,6 @@ class Policy(BasePolicy):
         next_path_index = current_path_index
         goal_path_index = self.get_cloest_path_index_to_goal(agent_obs)
 
-        # If the goal path index is 2 lane away, we only switch 1 lane at a time
-        # if abs(goal_path_index - current_path_index) > 1:
-        #     next_path_index = current_path_index + np.sign(goal_path_index - current_path_index)
-        # else:
-        #     next_path_index = goal_path_index
-
-        # if agent_id not in self.current_goal_path:
-        #     self.current_goal_path[agent_id] = goal_path_index
-
         if agent_id not in self.goal_path_history:
             self.goal_path_history[agent_id] = queue.Queue()
 
@@ -204,44 +197,64 @@ class Policy(BasePolicy):
         if self.goal_path_history[agent_id].qsize() > self.hist_len:
             self.goal_path_history[agent_id].get()
 
-        # goal_path_history = agent_obs["ego"]["goal_path_history"]
-
         if list(self.goal_path_history[agent_id].queue).count(self.goal_path_history[agent_id].queue[-1]) == self.hist_len:
             if current_path_index!= self.goal_path_history[agent_id].queue[-1]:
                 next_path_index = self.goal_path_history[agent_id].queue[-1]
-
-        # next_path_index = self.current_goal_path[agent_id]
         
-        # Get the next closest waypoints on the next path we decided
         wp_index, wp_last_index = self.get_waypoint_index_range(agent_obs=agent_obs, wps_path_index=next_path_index)
 
         # get the next speed limit
         speed_limit = agent_obs["waypoints"]["speed_limit"][next_path_index][wp_index]
 
-        # Now get the 
+        try:
+            waypoints_pos =  agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index+1, :2]
+            waypoints_heading = agent_obs["waypoints"]["heading"][next_path_index][wp_index:wp_last_index+1]
+        except:
+            waypoints_pos = np.array([]) 
+            waypoints_heading = np.array([])
 
-        # TODO: check whether this closest waypoint is feasible
-        # 1. The furthest it can get within speed limit
-        # 2. Any potential collision? 
-        #         - whether the trajectory will cross other neighbor's trajectory
-        #         - whether the next loaction maintain the safe distance of the other car
-        # 3. If collision, then cut the travel distance to half, and check again, recursively till the speed ~= 0
-        waypoints_pos =  agent_obs["waypoints"]["pos"][next_path_index][wp_index:wp_last_index+1, :2]
         goal_pos = agent_obs["mission"]["goal_pos"][:2]
         ego_pos = agent_obs["ego"]["pos"][:2]
 
-        # if (wp_last_index+1 - wp_index) < self.waypoints_length or (np.linalg.norm(ego_pos-goal_pos) < 10):
-        #     waypoints_pos = np.append(waypoints_pos, [agent_obs["mission"]["goal_pos"][:2]], axis=0)
-        #     r = np.ones(len(waypoints_pos))
-        #     r[-1] = self.waypoints_length - len(waypoints_pos) + 1
-        #     waypoints_pos = np.repeat(waypoints_pos, r.astype(int), axis=0)
-        if len(waypoints_pos) < 1:
+        planned_path = []
+        if len(waypoints_pos) <= 1:
             waypoints_pos = np.append(waypoints_pos, [agent_obs["mission"]["goal_pos"][:2]], axis=0)
         
-        planned_path = get_smoothed_future_waypoints(waypoints=waypoints_pos, 
-            start_pos=agent_obs["ego"]["pos"][:2], 
-            n_points=self.waypoints_length,
-            speed=1.0)
+            # Regenerate the waypoints, if the dist between ego and mission is so far
+            if np.linalg.norm(goal_pos - ego_pos) > 10:
+
+                if self.axis_priority < 0:
+                    if len(waypoints_pos) > 1:
+                        current_heading = waypoints_heading[0]
+                    else:
+                        current_heading = agent_obs["ego"]["heading"]
+
+                    heading_epslion = np.pi * 45 / 180.0
+
+                    rel_y_pos_angle = current_heading - np.pi * 0.0
+                    rel_y_neg_angle = current_heading - np.pi * 180.0 / 180.0
+                    rel_x_pos_angle = current_heading - np.pi * 90.0 / 180.0
+                    rel_x_neg_angle = current_heading - np.pi * -90.0 / 180.0
+
+                    rel_y_pos_angle = (rel_y_pos_angle + np.pi) % (2 * np.pi) - np.pi
+                    rel_y_neg_angle = (rel_y_neg_angle + np.pi) % (2 * np.pi) - np.pi
+                    rel_x_pos_angle = (rel_x_pos_angle + np.pi) % (2 * np.pi) - np.pi
+                    rel_x_neg_angle = (rel_x_neg_angle + np.pi) % (2 * np.pi) - np.pi
+
+                    if abs(rel_y_pos_angle) <= heading_epslion or abs(rel_y_neg_angle) <= heading_epslion:
+                        #along y axis first
+                        self.axis_priority = 1
+
+                    elif abs(rel_x_pos_angle) <= heading_epslion or abs(rel_x_neg_angle) <= heading_epslion:
+                        self.axis_priority = 0
+
+                planned_path = get_resampled_waypoints_pos(waypoints=waypoints_pos, start_pos=ego_pos, axis=self.axis_priority, n_points=self.act_length, speed=1.0)
+
+        if not planned_path:
+            planned_path = get_smoothed_future_waypoints(waypoints=waypoints_pos, 
+                start_pos=agent_obs["ego"]["pos"][:2], 
+                n_points=self.waypoints_length,
+                speed=1.0)
 
         action = planned_path[0]
         scores = self.get_safe_scores(agent_obs, [action], [planned_path])
@@ -265,32 +278,8 @@ class Policy(BasePolicy):
 
         goal_dir = action[:2] - agent_obs["ego"]["pos"][:2]
         action[:2] = agent_obs["ego"]["pos"][:2] + speed * goal_dir[:2]
-        action[:2] = agent_obs["ego"]["pos"][:2] + speed * goal_dir[:2]
 
         return action
-
-        # sampled_speed = self.get_speed_samples(n_sample=20)
-        # sampled_waypoints = np.array([
-        #     get_smoothed_future_waypoints(waypoints=waypoints_pos, 
-        #     start_pos=agent_obs["ego"]["pos"][:2], 
-        #     n_points=self.waypoints_length,
-        #     speed=sampled_speed[i]) for i in range(len(sampled_speed))
-        #     ])
-
-        # sampled_actions = [] 
-        # for i in range(len(sampled_speed)):
-        #     next_waypoint = sampled_waypoints[i][0]
-        #     next_goal_pos, _ = self.get_next_limited_action(agent_obs["ego"]["pos"][:2], next_waypoint[:2], speed_limit)
-        #     sampled_actions.append([next_goal_pos[0], next_goal_pos[1], next_waypoint[2]])
-
-        # scores = self.get_safe_scores(agent_obs, sampled_actions, sampled_waypoints)
-        # import torch
-        # sm = torch.nn.Softmax()
-        # prob = sm(scores[:, -1])
-        # speeds = [i for i in range(len(sampled_speed))]
-        # sample_index = np.random.choice(speeds, 1, p=prob)[0]
-    
-        # return sampled_actions[sample_index]
 
     def accelerate(self, agent_obs):
         obstacles = self.get_obstacles(agent_obs=agent_obs)
@@ -312,8 +301,8 @@ class Policy(BasePolicy):
                 return -1
     
     def get_obstacles(self, agent_obs: Dict[str, Dict[str, Any]]):
-        rel_angle_th = np.pi * 40 / 180
-        rel_heading_th = np.pi * 170 / 180
+        rel_angle_th = np.pi * 60 / 180
+        rel_heading_th = np.pi * 175 / 180
 
         # Ego's position and heading with respect to the map's coordinate system.
         # Note: All angles returned by smarts is with respect to the map's coordinate system.
@@ -451,8 +440,8 @@ class Policy(BasePolicy):
             index = np.argmin(dist_to_goal)
 
             return waypoint_path_index_candidate[index]
-        except:
-            print("failed to find the cloest path index to goal.")
+        except Exception as e:
+            print("failed to find the cloest path index to goal due to {}".format(str(e)))
             print("Mission = {}".format(str(agent_obs["mission"])))
             print("Waypoints = {}".format(str(wps)))
 
@@ -608,4 +597,53 @@ def get_smoothed_future_waypoints(waypoints, start_pos, n_points, speed=1.0):
     return wps
     
 
-            
+def get_resampled_waypoints_pos(waypoints, start_pos, axis, n_points, speed = 1.0):
+    if len(waypoints) > 0:
+        final_pos = waypoints[-1]
+    else:
+        raise Exception("Empty waypoints recieved from get_resampled_waypoints_pos()")
+    
+    ret_waypoints = []
+    if axis == 0:
+        # x first
+        x_inc = final_pos[0] - start_pos[0]
+        x_sign = np.sign(x_inc)
+        current_pos = start_pos.copy()
+        while (abs(final_pos[0] - current_pos[0]) > 3.0 * speed) and (len(ret_waypoints) < n_points):
+            current_pos[0] += x_sign * speed
+            ret_waypoints.append([current_pos[0], current_pos[1]])
+
+    
+        if len(ret_waypoints) < n_points:
+            y_inc = final_pos[1] - current_pos[1]
+            y_sign = np.sign(y_inc)
+            current_pos[1] += y_sign * 3 * speed
+            while (abs(final_pos[1] - current_pos[1]) > speed) and (len(ret_waypoints) < n_points):
+                ret_waypoints.append([final_pos[0], current_pos[1]])
+                current_pos[1] += y_sign * speed
+                
+
+    elif axis == 1:
+        # y first
+        y_inc = final_pos[1] - start_pos[1]
+        y_sign = np.sign(y_inc)
+        current_pos = start_pos.copy()
+        while (abs(final_pos[1] - current_pos[1]) > 3.0 * speed) and (len(ret_waypoints) < n_points):
+            current_pos[1] += y_sign * speed
+            ret_waypoints.append([current_pos[0], current_pos[1]])
+
+    
+        if len(ret_waypoints) < n_points:
+            x_inc = final_pos[0] - current_pos[0]
+            x_sign = np.sign(x_inc)
+            current_pos[0] += x_sign * 3.0 * speed
+            while (abs(final_pos[0] - current_pos[0]) > speed) and (len(ret_waypoints) < n_points):
+                ret_waypoints.append([current_pos[0], final_pos[1]])
+                current_pos[0] += x_sign * speed
+
+    
+    return get_smoothed_future_waypoints(waypoints=ret_waypoints, start_pos=start_pos, n_points=n_points, speed=speed)
+
+
+
+
