@@ -5,3 +5,7 @@ n_steps_per_epoch: 2     # number of steps per epoch
 n_scenarios: 2           # number of training scenarios
 n_vehicles: 2            # number of vehicles to examine
 gpu: False               # whether GPU is used for training
+learning_rate: 0.0003    # learning rate
+n_batch: 100
+n_epoch: 1
+checkpoint_fq: 30
