@@ -18,7 +18,7 @@ import cloudpickle
 
 from copy_data import CopyData, DataStore
 # from policy import Policy, submitted_wrappers
-from filtering_policy import Policy, submitted_wrappers
+from filtering_policy_generator import Policy, submitted_wrappers
 
 from utils import load_config, merge_config, validate_config, write_output
 
@@ -37,17 +37,17 @@ _EVALUATION_CONFIG_KEYS = {
 }
 _DEFAULT_EVALUATION_CONFIG = dict(
     phase="track1",
-    eval_episodes=10,
+    eval_episodes=2,
     seed=36,
     scenarios=[
         "1_to_2lane_left_turn_c",
-        # "1_to_2lane_left_turn_t",
-        # "3lane_merge_multi_agent",
-        # "3lane_merge_single_agent",
+        "1_to_2lane_left_turn_t",
+        "3lane_merge_multi_agent",
+        "3lane_merge_single_agent",
         # "3lane_cruise_multi_agent",
-        # "3lane_cruise_single_agent",
-        # "3lane_cut_in",
-        # "3lane_overtake",
+        "3lane_cruise_single_agent",
+        "3lane_cut_in",
+        "3lane_overtake",
     ],
     bubble_env_evaluation_seeds=[6],
 )

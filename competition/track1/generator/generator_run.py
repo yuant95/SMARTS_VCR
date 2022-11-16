@@ -27,7 +27,7 @@ from utils import load_config, merge_config, validate_config, write_output
 sys.setrecursionlimit(10000)
 logger = logging.getLogger(__file__)
 
-OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221105_8step_planned_random2")
+OUT_FOLDER = os.path.join(os.path.dirname(__file__), "../trainingData/20221115")
 
 N_EVENT = 150
 STEP = 8
@@ -44,14 +44,15 @@ _DEFAULT_EVALUATION_CONFIG = dict(
     eval_episodes=2,
     seed=20,
     scenarios=[
-        "1_to_2lane_left_turn_c",
-        "1_to_2lane_left_turn_t",
-        "3lane_merge_multi_agent",
-        "3lane_merge_single_agent",
+        # "1_to_2lane_left_turn_c",
+        # "1_to_2lane_left_turn_t",
+        # "3lane_merge_multi_agent",
+        # "3lane_merge_single_agent",
         # "3lane_cruise_multi_agent",
-        "3lane_cruise_single_agent",
-        "3lane_cut_in",
-        "3lane_overtake",
+        # "3lane_cruise_single_agent",
+        # "3lane_cut_in",
+        # "3lane_overtake",
+        "4lane_t"
     ],
     bubble_env_evaluation_seeds=[8],
 )
@@ -113,7 +114,7 @@ def run(config):
         action_space="TargetPose",
         img_meters=int(config["img_meters"]),
         img_pixels=int(config["img_pixels"]),
-        sumo_headless=True,
+        sumo_headless=False,
     )
     env_ctors = {}
     for scenario in config["scenarios"]:
@@ -139,15 +140,15 @@ def run(config):
     forkserver_available = "forkserver" in mp.get_all_start_methods()
     start_method = "forkserver" if forkserver_available else "spawn"
     mp_context = mp.get_context(start_method)
-    with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
-        futures = [
-            pool.submit(
-                _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
-            )
-            for env_name, env_ctor in env_ctors.items()
-        ]
-    # for env_name, env_ctor in env_ctors.items():
-    #     _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
+    # with ProcessPoolExecutor(max_workers=3, mp_context=mp_context) as pool:
+    #     futures = [
+    #         pool.submit(
+    #             _worker, cloudpickle.dumps([env_name, env_ctor, Policy, config])
+    #         )
+    #         for env_name, env_ctor in env_ctors.items()
+    #     ]
+    for env_name, env_ctor in env_ctors.items():
+        _worker(cloudpickle.dumps([env_name, env_ctor, Policy, config]))
 
 
     # rank = score.compute()
@@ -191,7 +192,7 @@ def _worker(input: bytes) -> None:
         "on_shoulder": 0,
         "wrong_way": 0,
         "off_route": 0,
-        "safe": 0
+        "safe": int(STEP * N_EVENT / 3)
     }
 
     df_file = os.path.join(out_folder, "df_{}.csv".format(env_name))

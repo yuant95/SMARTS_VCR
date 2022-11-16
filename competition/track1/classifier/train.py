@@ -10,7 +10,11 @@ from pathlib import Path
 # TRAINING_DATA = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221029_2/1_to_2lane_left_turn_c"
 # annotations_file = os.path.join(TRAINING_DATA, "df_1_to_2lane_left_turn_c.pkl")
 
-data_dir = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221102_10step"
+data_dir = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/trainingData/20221105_8step_planned_random2"
+# model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_02_22_53_39/model_step10_epoch120_2022_11_03_20_33_04"
+# model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_04_12_19_19/model_step10_epoch30_2022_11_04_14_42_44"
+# model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_04_12_19_19/model_step10_epoch30_2022_11_04_14_42_44"
+model_path = "/home/yuant426/Desktop/SMARTS_track1/competition/track1/classifier/logs/2022_11_06_11_04_18/model_step10_epoch60_2022_11_06_13_08_12"
 # img_dir = TRAINING_DATA
 
 time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
@@ -22,7 +26,9 @@ config = {
     "learning_rate": 3e-4,
     "batch_size": 100,
     "n_epoch": 150,
-    "log_dir": logdir
+    "log_dir": logdir,
+    "model_path": model_path,
+    "note":"refine with 4 scen"
 }
 
 wandb_run = wandb.init(
@@ -43,7 +49,12 @@ device = torch.device(dev)
 dataset = AllImageDataset(data_dir)
 data_loader = torch.utils.data.DataLoader(dataset, batch_size=config["batch_size"],
         shuffle=True, drop_last=True)
-model = NeuralNetwork()
+
+if model_path:
+    model = torch.load(model_path)
+    model.eval()
+else:
+    model = NeuralNetwork()
 model.to(device)
 loss_fn = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])

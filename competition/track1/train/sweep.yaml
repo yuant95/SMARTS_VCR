@@ -1,0 +1,22 @@
+method: bayes
+metric:
+  goal: maximize
+  name: rollout/ep_rew_mean
+parameters:
+  action_wrapper:
+    distribution: categorical
+    values:
+      - discrete
+      - continuous
+  alg:
+    distribution: categorical
+    values:
+      - PPO
+  train_steps:
+    distribution: int_uniform
+    max: 200000
+    min: 1
+  weights:
+    
+
+program: competition/track1/train/run.py
