@@ -31,3 +31,4 @@ For the training code, see `competition/track1/classifier/train.py`.
 
 More detailed documentation overleaf file: https://www.overleaf.com/read/gtbjhybmkxpk
 GitHub link: https://github.com/yuant95/SMARTS_VCR
+DockerHub Image: https://hub.docker.com/repository/docker/yuant426/smarts_competition_track2 

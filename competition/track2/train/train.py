@@ -85,7 +85,7 @@ def train(input_path, output_path):
         
         if epoch%train_config["checkpoint_fq"] == 0: 
             time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            path = str(train_config["log_dir"]) + ("/model_step10_epoch" + str(epoch) + "_" + time)
+            path = str(train_config["log_dir"]) + ("/model_checkpoint_epoch" + str(epoch) + "_" + time)
             torch.save(model, path)
 
     torch.save(model, os.path.join(output_path, "model"))

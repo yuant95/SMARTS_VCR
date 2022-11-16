@@ -49,10 +49,7 @@ class track2Dataset(Dataset):
             ego_pos[2] = (ego_pos[2] + np.pi) % (2 * np.pi) - np.pi 
 
             waypoints = self.get_waypoints(obs)
-
             label = self.get_label(observations, i)
-            print(i)
-
             image_file = os.path.join(dirpath, str(t) + "_" + vehicle_id + ".png")
             
             data = {
@@ -74,7 +71,7 @@ class track2Dataset(Dataset):
     def get_waypoints(self, obs):
         ret_waypoints = np.zeros((5, 3))
         path_index = self.get_current_waypoint_path_index(obs)
-        if path_index > 0: 
+        if path_index >= 0: 
             waypoints = obs.waypoint_paths[path_index]
             for i in range(min(5, len(waypoints))):
                 pos = waypoints[i].pos
@@ -113,6 +110,8 @@ class track2Dataset(Dataset):
 
             if events.collisions:
                 label = "collisions"
+                break
+            
             elif events.off_road:
                 label = "off_road"
             elif events.off_route:
