@@ -24,6 +24,14 @@ from pathlib import Path
 
 from smarts.sstudio import gen_scenario
 from smarts.sstudio.types import Flow, Mission, Route, Scenario, Traffic, TrafficActor
+from smarts.sstudio import types as t
+
+from smarts.core.agent import Agent
+from smarts.core.agent_interface import AgentInterface
+from smarts.core.controllers import ActionSpaceType
+from smarts.zoo.agent_spec import AgentSpec
+from smarts.zoo.registry import register
+
 
 normal = TrafficActor(
     name="car",
@@ -80,10 +88,66 @@ ego_missions = [
     )
 ]
 
+# class BasicAgent(Agent):
+#     def act(self, obs):
+#         return "keep_lane"
+
+
+# register(
+#     locator="minimal",
+#     entry_point=lambda **kwargs: AgentSpec(
+#         interface=AgentInterface(waypoints=True, action=ActionSpaceType.Lane),
+#         agent_builder=BasicAgent,
+#     ),
+# )
+
+agent_prefabs = "scenarios.straight.3lane_cruise_single_agent.agent_prefabs"
+
+motion_planner_actor = t.SocialAgentActor(
+    name="motion-planner-agent",
+    agent_locator=f"{agent_prefabs}:motion-planner-agent-v0",
+)
+
+zoo_agent_actor = t.SocialAgentActor(
+    name="zoo-agent",
+    agent_locator=f"{agent_prefabs}:zoo-agent-v0",
+)
+
+bubbles = [
+    t.Bubble(
+        zone=t.MapZone(start=("gneE3", 0, 10), length=10, n_lanes=1),
+        margin=2,
+        actor=zoo_agent_actor,
+    ),
+    t.Bubble(
+        zone=t.PositionalZone(pos=(100, 100), size=(20, 20)),
+        margin=2,
+        actor=motion_planner_actor,
+    ),
+]
+
+social_agent_missions = {
+    "all": (
+        [
+            t.SocialAgentActor(
+                name="keep-lane-agent-v0",
+                agent_locator="zoo.policies:keep-lane-agent-v0",
+            ),
+        ],
+        [
+            t.Mission(
+                t.Route(begin=("gneE3", 0, 10), end=("gneE3", 0, "max"))
+            )
+        ],
+    ),
+}
+
 gen_scenario(
     scenario=Scenario(
         traffic=traffic,
         ego_missions=ego_missions,
+        bubbles=bubbles,
+        social_agent_missions=social_agent_missions
     ),
     output_dir=Path(__file__).parent,
 )
