@@ -1,11 +1,12 @@
 from typing import Any, Dict, List
 
 import gym
+import sys
+from pathlib import Path
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from train.action import Action as DiscreteAction
 from train.action import Continuous_Action as Continuous_Action
 from train.info import Info
-from train.observation import Concatenate, FilterObs, SaveObs
 from train.reward import Reward
 
 from smarts.core.controllers import ActionSpaceType
@@ -13,6 +14,12 @@ from smarts.env.wrappers.format_action import FormatAction
 from smarts.env.wrappers.format_obs import FormatObs
 from smarts.env.wrappers.frame_stack import FrameStack
 from smarts.env.wrappers.single_agent import SingleAgent
+
+# To import submission folder
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from submission.action import Action as DiscreteAction
+from submission.observation import Concatenate, FilterObs, SaveObs
 
 
 def wrappers_baseline(config: Dict[str, Any]):
@@ -97,6 +104,7 @@ def make(
         img_meters=config["img_meters"],
         img_pixels=config["img_pixels"],
         sumo_headless=not config["sumo_gui"],  # If False, enables sumo-gui display.
+        headless=not config["head"],  # If False, enables Envision display.
     )
     
     env.seed(seed)

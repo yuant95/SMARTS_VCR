@@ -4,6 +4,7 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import argparse
 import warnings
+import sys
 from datetime import datetime
 from itertools import cycle
 from pathlib import Path
@@ -14,11 +15,13 @@ import stable_baselines3 as sb3lib
 import torch as th
 
 from ruamel.yaml import YAML
-from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
+from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env, VecMonitor 
 from train import env as multi_scenario_env
-import network
+
+# To import submission folder
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "submission"))
 
 import wandb
 from wandbCallback import CustomCallback 
@@ -32,7 +35,7 @@ yaml = YAML(typ="safe")
 def get_config(args: argparse.Namespace):
     # Load config file.
     config_file = yaml.load(
-        (Path(__file__).absolute().parent / "config.yaml").read_text()
+        (Path(__file__).resolve().parent / "config.yaml").read_text()
     )
     # Load env config.
     config = config_file["smarts"]
@@ -41,7 +44,7 @@ def get_config(args: argparse.Namespace):
     # Setup logdir.
     if not args.logdir:
         time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        logdir = Path(__file__).absolute().parents[0] / "logs" / time
+        logdir = Path(__file__).resolve().parents[0] / "logs" / time
     else:
         logdir = Path(args.logdir)
     logdir.mkdir(parents=True, exist_ok=True)
