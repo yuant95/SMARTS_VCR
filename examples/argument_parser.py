@@ -30,7 +30,7 @@ def default_argument_parser(program: Optional[str] = None):
         default=10,
     )
     parser.add_argument(
-        "--headless", help="Run the simulation in headless mode.", action="store_true"
+        "--headless", help="Run the simulation in headless mode.", action="store_true", default=False
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(

@@ -8,13 +8,9 @@ from smarts.core.agent import Agent
 from smarts.core.agent_interface import AgentInterface, AgentType
 from smarts.core.utils.episodes import episodes
 from smarts.zoo.agent_spec import AgentSpec
-from smarts.env.wrappers.format_obs import FormatObs
-from smarts.core.controllers import ActionSpaceType
-from invertedAIAgent import invertedAiAgent
 
 N_AGENTS = 8
 AGENT_IDS = ["Agent %i" % i for i in range(N_AGENTS)]
-location = "smarts:3lane_cruise_single_agent"
 
 
 class KeepLaneAgent(Agent):
@@ -23,24 +19,12 @@ class KeepLaneAgent(Agent):
 
 
 def main(scenarios, headless, num_episodes, max_episode_steps=None):
-    agent_interface = AgentInterface(
-        max_episode_steps=1000,
-        waypoints=True,
-        neighborhood_vehicles=True,
-        drivable_area_grid_map=True,
-        ogm=True,
-        rgb=True,
-        lidar=False,
-        action=ActionSpaceType.TargetPose,
-    )
-
     agent_specs = {
         agent_id: AgentSpec(
-            # interface=AgentInterface.from_type(
-            #     AgentType.Laner, max_episode_steps=max_episode_steps
-            # ),
-            interface=agent_interface,
-            agent_builder=invertedAiAgent,
+            interface=AgentInterface.from_type(
+                AgentType.Laner, max_episode_steps=max_episode_steps
+            ),
+            agent_builder=KeepLaneAgent,
         )
         for agent_id in AGENT_IDS
     }
@@ -53,11 +37,6 @@ def main(scenarios, headless, num_episodes, max_episode_steps=None):
         sumo_headless=False,
     )
 
-    wrappers = [FormatObs]
-
-    for wrapper in wrappers:
-        env = wrapper(env)
-
     for episode in episodes(n=num_episodes):
         agents = {
             agent_id: agent_spec.build_agent()
@@ -67,16 +46,11 @@ def main(scenarios, headless, num_episodes, max_episode_steps=None):
         episode.record_scenario(env.scenario_log)
 
         dones = {"__all__": False}
-        i = 0
         while not dones["__all__"]:
-            i += 1
-            actions = {}
-            for agent_id, agent_obs in observations.items():
-                agent_obs=observations[agent_id]
-                if agent_id not in dones:
-                    actions[agent_id] = agents[agent_id].act(agent_obs)
-                elif not dones[agent_id]:
-                    actions[agent_id] = agents[agent_id].act(agent_obs)               
+            actions = {
+                agent_id: agents[agent_id].act(agent_obs)
+                for agent_id, agent_obs in observations.items()
+            }
 
             observations, rewards, dones, infos = env.step(actions)
             episode.record_step(observations, rewards, dones, infos)
@@ -98,7 +72,6 @@ if __name__ == "__main__":
                 / "3lane_cruise_multi_agent"
             )
         ]
-
     sstudio.build_scenario(scenario=args.scenarios)
 
     main(
