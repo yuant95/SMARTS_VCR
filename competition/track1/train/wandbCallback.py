@@ -78,23 +78,23 @@ class CustomCallback(BaseCallback):
 
         # log to wandb
 
-        episode_rewards, episode_lengths, episode_infos = evaluate_policy(
-                self.model,
-                self.eval_env,
-                n_eval_episodes=self.n_eval_episodes,
-                render=self.render,
-                deterministic=self.deterministic,
-                return_episode_rewards=True,
-            )
+        # episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+        #         self.model,
+        #         self.eval_env,
+        #         n_eval_episodes=self.n_eval_episodes,
+        #         render=self.render,
+        #         deterministic=self.deterministic,
+        #         return_episode_rewards=True,
+        #     )
         
-        mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
-        mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
-        self.eval_env.reset()
+        # mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
+        # mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
+        # self.eval_env.reset()
 
-        wandb.log(dict({'det_avg_reward':mean_reward,
-                   'det_avg_ep_len':mean_ep_length,
-                   'time_steps': self.num_timesteps,
-                   'updates': self.model._n_updates}, **episode_infos))
+        # wandb.log(dict({'det_avg_reward':mean_reward,
+        #            'det_avg_ep_len':mean_ep_length,
+        #            'time_steps': self.num_timesteps,
+        #            'updates': self.model._n_updates}, **episode_infos))
         return None
 
     def _on_rollout_start(self) -> None:

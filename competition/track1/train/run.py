@@ -19,6 +19,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env, VecMonitor 
 from train import env as multi_scenario_env
+from train import network
 
 # To import submission folder
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "submission"))
@@ -110,21 +111,26 @@ def run(
 ):
     if config["mode"] == "train":
         print("\nStart training.\n")
-        model = getattr(sb3lib, config["alg"])(
-            env=envs_train, #[next(scenarios_iter)],
-            verbose=1,
-            tensorboard_log=config["logdir"] + "/tensorboard",
-            **network.combined_extractor(config),
-        )
-
         if config["baseline"]:
-            model.load(config["baseline"])
+            # model.load(config["baseline"])
+            model = sb3lib.PPO.load(config["baseline"], 
+                                    env=envs_train, verbose=1, 
+                                    tensorboard_log=config["logdir"] + "/tensorboard")
         # for index in range(config["epochs"]):
             # checkpoint_callback = CheckpointCallback(
             #     save_freq=config["checkpoint_freq"],
             #     save_path=config["logdir"] + "/checkpoint",
             #     name_prefix=f"{config['alg']}_{index}",
             # )
+            
+        else:
+            model = getattr(sb3lib, config["alg"])(
+                env=envs_train, #[next(scenarios_iter)],
+                verbose=1,
+                tensorboard_log=config["logdir"] + "/tensorboard",
+                **network.combined_extractor(config),
+            )
+        
         custom_callback = CustomCallback(
             verbose = 1, 
             eval_env=envs_eval,
@@ -200,25 +206,25 @@ if __name__ == "__main__":
         "--train_steps",
         help="Total training step",
         type=int,
-        default=1_000_000,
+        default=2_000_000,
     )
     parser.add_argument(
         "--checkpoint_freq",
         help="Save a model every checkpoint_freq calls to env.step().",
         type=int,
-        default=1_000,
+        default=50_000,
     )
     parser.add_argument(
         "--eval_eps",
         help="Number of evaluation epsiodes.",
         type=int,
-        default=100,
+        default=50,
     )
     parser.add_argument(
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=2_000,
+        default=100_000,
     )
     parser.add_argument(
         "--alg",
@@ -237,43 +243,43 @@ if __name__ == "__main__":
         help="Will load the model given the path",
         type=str,
         default=""
-        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2022_10_16_00_37_56/eval3vpgen07/sb3_model.zip",
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_12_17_05_56/checkpoint/PPO_720000_steps.zip",
     )
     parser.add_argument(
         "--w0",
         help="Complete: -50 for collision.",
         type=float,
-        default= 1.0
+        default= 0.0
     )
     parser.add_argument(
         "--w1",
         help="Humanness: jerk angular + jerk linear + lane center offset",
         type=float,
-        default= 0.01
+        default= 0.0
     )
     parser.add_argument(
         "--w2",
         help="Time: -distance to goal",
         type=float,
-        default= 0.01
+        default= 1.0
     )
     parser.add_argument(
         "--w3",
         help="Rules: wrong way + speed limit.",
         type=float,
-        default= 1.0
+        default= 0.0
     )
     parser.add_argument(
         "--w4",
         help="Goal: reached goal reward + penalize off road/ off route/ on shoulder.",
         type=float,
-        default=1.0
+        default= 0.0
     )
     parser.add_argument(
         "--w5",
         help="Traveled distance.",
         type=float,
-        default=0.05
+        default= 0.0
     )
 
     args = parser.parse_args()

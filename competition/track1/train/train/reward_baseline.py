@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import gym
 import numpy as np
@@ -15,9 +15,6 @@ class Reward(gym.Wrapper):
             raise Exception("The reward weights must have length of 6 rather than {}".format(len(self.weights)))
         self.reward = None
         self.weighted_reward = None
-
-    # def reset(self, **kwargs):
-    #     return self.env.reset(**kwargs)
 
     def step(self, action):
         """Adapts the wrapped environment's step.
@@ -47,51 +44,6 @@ class Reward(gym.Wrapper):
                     raise Exception("Episode ended for unknown reason.")
 
         return obs, wrapped_reward, done, wrapped_info
-
-    def _reward_ori(
-        self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64]
-    ) -> Dict[str, np.float64]:
-        reward = {agent_id: np.float64(0) for agent_id in env_reward.keys()}
-
-        for agent_id, agent_reward in env_reward.items():
-            # Penalty for colliding
-            if obs[agent_id]["events"]["collisions"]:
-                reward[agent_id] -= np.float64(10)
-                print(f"{agent_id}: Collided.")
-                break
-
-            # Penalty for driving off road
-            if obs[agent_id]["events"]["off_road"]:
-                reward[agent_id] -= np.float64(10)
-                print(f"{agent_id}: Went off road.")
-                break
-
-            # Penalty for driving off route
-            if obs[agent_id]["events"]["off_route"]:
-                reward[agent_id] -= np.float64(10)
-                print(f"{agent_id}: Went off route.")
-                break
-
-            # Penalty for driving on road shoulder
-            # if obs[agent_id]["events"]["on_shoulder"]:
-            #     reward[agent_id] -= np.float64(1)
-            #     print(f"{agent_id}: Went on shoulder.")
-            #     break
-
-            # Penalty for driving on wrong way
-            if obs[agent_id]["events"]["wrong_way"]:
-                reward[agent_id] -= np.float64(10)
-                print(f"{agent_id}: Went wrong way.")
-                break
-
-            # Reward for reaching goal
-            if obs[agent_id]["events"]["reached_goal"]:
-                reward[agent_id] += np.float64(30)
-
-            # Reward for distance travelled
-            reward[agent_id] += np.float64(agent_reward)
-
-        return reward
 
     def _info(self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64], info: Dict[Any, Any]
     ) -> Dict[str, np.float64]:
@@ -123,39 +75,28 @@ class Reward(gym.Wrapper):
         reward = {agent_id: np.float64(0) for agent_id in env_reward.keys()}
 
         for agent_id, agent_reward in env_reward.items():
-            agent_obs = obs[agent_id]
+
             # These are from the evaluation metrics
-            complete = self._completion(agent_obs)
-            humanness = self._humanness(agent_obs)
-            time = self._time(agent_obs)
-            rules = self._rules(agent_obs)
-            goal = self._goal(agent_obs)
+            complete = self._completion(obs[agent_id])
+            humanness = self._humanness(obs[agent_id])
+            time = self._time(obs[agent_id])
+            rules = self._rules(obs[agent_id])
+            goal = self._goal(obs[agent_id])
 
             self.reward = np.array([complete, humanness, time, rules, goal, np.float64(agent_reward)])
             self.weighted_reward = np.multiply(self.reward, self.weights)
-            
-            # Penalty for reach max episode steps
-            # if agent_obs["events"]["reached_max_episode_steps"]:
-            #     self.weighted_reward -= np.float64(100)
-
-            # Reward for reaching goal
-            if agent_obs["events"]["reached_goal"]:
-                self.weighted_reward += np.float64(600)
-
             reward[agent_id] += np.sum(self.weighted_reward)
 
         return reward
 
-    # No need for this, penality for collision is ending the episode
     def _completion(
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
         if agent_obs["events"]["collisions"]:
             print(f"Collided.")
-            return np.float64(0.0)
+            return - np.float64(50)
         return np.float64(0.0)
 
-    # Only consider dist to obstacle and lane center for now
     def _humanness(
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
@@ -164,26 +105,17 @@ class Reward(gym.Wrapper):
         #     - self._jerk_linear(agent_obs)
         #     - self._lane_center_offset(agent_obs)), np.float64(-10.0))
         # )
-        
-        # return self._dist_to_obstacles(agent_obs) - self._jerk_angular(agent_obs) - self._jerk_linear(agent_obs) - self._lane_center_offset(agent_obs)
+        return self._dist_to_obstacles(agent_obs) - self._jerk_angular(agent_obs) - self._jerk_linear(agent_obs) - self._lane_center_offset(agent_obs)
     
-
-        dist_to_obs = 0.5 * np.tanh(self._dist_to_obstacles(agent_obs))
-        sigma = 0.4325
-        lane_center_offset = 0.5 * np.exp(- self._lane_center_offset(agent_obs)/ (2*sigma))
-
-        return dist_to_obs+lane_center_offset
-        
-    # Only consider wrong way for now
     def _rules(
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
-        score = np.float64(1.0)
+        score = np.float64(0.0)
         if agent_obs["events"]["wrong_way"]:
             print(f"Wrong way.")
-            score = np.float64(0.0)
+            score -= np.float64(10)
 
-        # score -= self._speed_limit(agent_obs)
+        score -= self._speed_limit(agent_obs)
 
         # return min(np.float64(10.0), max(score, np.float64(-10.0))) 
         return score
@@ -195,64 +127,49 @@ class Reward(gym.Wrapper):
         # NOTE: This doesn't seem to make sense during training.
         # return min(np.float64(10.0), max(-self._dist_to_goal(agent_obs), np.float64(-10.0))) 
         # return -self._dist_to_goal(agent_obs)
-        current_ego_pos = agent_obs["ego"]["pos"]
+        dist_to_goal = self._dist_to_goal(agent_obs)
 
-        goal_pos = []
-        mission = agent_obs["mission"]
-        if "goal_pos" in mission:
-            goal_pos = mission["goal_pos"]
-        
-        prev_ego_pos = agent_obs["history"][1]["ego"]["pos"]
-
-        current_dist_to_goal = self._dist_to_goal(current_ego_pos, goal_pos)
-        prev_dist_to_goal = self._dist_to_goal(prev_ego_pos, goal_pos)
-
-        change = current_dist_to_goal-prev_dist_to_goal
-
-        if change >=0:
-            return 0.0
-        else:
-            return np.tanh(abs(change))
-
-        # return np.exp(-abs(current_dist_to_goal-prev_dist_to_goal)/ 1000)
+        return np.exp(-abs(dist_to_goal)/ 1000)
 
     def _goal(self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> Dict[str, np.float64]:
-        r = 1.0
+        r = 0.0
         # Penalty for driving off road
         if agent_obs["events"]["off_road"]:
            print(f"Off road.")
-           r -= np.float64(0.25)
+           r -= np.float64(50)
 
         # Penalty for driving off route
         if agent_obs["events"]["off_route"]:
             print(f"Off route.")
-            r -= np.float64(0.25)
+            r -= np.float64(50)
 
         # Penalty for driving on road shoulder
         if agent_obs["events"]["on_shoulder"]:
             print(f"On shoulder")
-            r -= np.float64(0.25)
+            r -= np.float64(2)
+
+        # Penalty for reach max episode steps
+        if agent_obs["events"]["reached_max_episode_steps"]:
+            r -= np.float64(0.5)
+        else:
+            r += np.float64(0.5)
 
         if agent_obs["events"]["not_moving"]:
-            r -= np.float64(0.25)
+            r -= np.float64(0.5)
+
+        # Reward for reaching goal
+        if agent_obs["events"]["reached_goal"]:
+            r += np.float64(30)
 
         return np.float64(r)
+        # return min(np.float64(10.0), max(r, np.float64(-10.0))) 
 
     def _dist_to_goal(self, obs: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
         mission = obs["mission"]
         if "goal_pos" in mission:
             goal_position = mission["goal_pos"]
             rel = obs["ego"]["pos"][:2] - goal_position[:2]
-            dist = sum(abs(rel))
-        else:
-            dist = 0
-
-        return np.float64(dist)
-
-    def _dist_to_goal(self, current_pos:List[float], goal_pos:List[float]) -> Dict[str, float]:
-        if len(goal_pos) != 0:
-            rel = current_pos[:2] - goal_pos[:2]
             dist = sum(abs(rel))
         else:
             dist = 0
@@ -323,10 +240,9 @@ class Reward(gym.Wrapper):
         # J_D : Distance to obstacles cost
         di = [nghb_state[1] for nghb_state in nghbs_state]
         di = np.array(di)
-        # j_d = np.amax(np.exp(-w_dist * di))
+        j_d = np.amax(np.exp(-w_dist * di))
 
-        # return np.float64(j_d)
-        return np.amax(di)
+        return np.float64(j_d)
 
     def _jerk_angular(self, agent_obs: Dict[str, Dict[str, Any]]) -> np.float64:
         ja_squared = np.sum(np.square(agent_obs["ego"]["angular_jerk"]))

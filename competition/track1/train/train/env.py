@@ -6,20 +6,16 @@ from pathlib import Path
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from train.action import Action as DiscreteAction
 from train.action import Continuous_Action as Continuous_Action
+from train.observation import Concatenate, FilterObs, SaveObs
 from train.info import Info
 from train.reward import Reward
+from train.history import HistoryStack
 
 from smarts.core.controllers import ActionSpaceType
 from smarts.env.wrappers.format_action import FormatAction
 from smarts.env.wrappers.format_obs import FormatObs
 from smarts.env.wrappers.frame_stack import FrameStack
 from smarts.env.wrappers.single_agent import SingleAgent
-
-# To import submission folder
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from submission.action import Action as DiscreteAction
-from submission.observation import Concatenate, FilterObs, SaveObs
 
 
 def wrappers_baseline(config: Dict[str, Any]):
@@ -58,6 +54,8 @@ def wrappers_vec(config: Dict[str, Any]):
         FormatObs,
         # Used to format action space such that it becomes gym-space compliant.
         lambda env: FormatAction(env=env, space=ActionSpaceType["TargetPose"]),
+
+        lambda env: HistoryStack(env=env, num_stack=config["num_stack"]),
         Info,
         # Used to shape rewards.
         # Reward,
