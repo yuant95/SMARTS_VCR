@@ -206,7 +206,7 @@ if __name__ == "__main__":
         "--train_steps",
         help="Total training step",
         type=int,
-        default=2_000_000,
+        default=5_000_000,
     )
     parser.add_argument(
         "--checkpoint_freq",
@@ -218,13 +218,13 @@ if __name__ == "__main__":
         "--eval_eps",
         help="Number of evaluation epsiodes.",
         type=int,
-        default=50,
+        default=100,
     )
     parser.add_argument(
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=100_000,
+        default=200_000,
     )
     parser.add_argument(
         "--alg",
@@ -243,7 +243,7 @@ if __name__ == "__main__":
         help="Will load the model given the path",
         type=str,
         default=""
-        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_12_17_05_56/checkpoint/PPO_720000_steps.zip",
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_19_15_20_52/checkpoint/PPO_1000000_steps",
     )
     parser.add_argument(
         "--w0",

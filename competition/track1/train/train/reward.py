@@ -138,11 +138,11 @@ class Reward(gym.Wrapper):
             # if agent_obs["events"]["reached_max_episode_steps"]:
             #     self.weighted_reward -= np.float64(100)
 
+            reward[agent_id] += np.sum(self.weighted_reward)
+
             # Reward for reaching goal
             if agent_obs["events"]["reached_goal"]:
-                self.weighted_reward += np.float64(600)
-
-            reward[agent_id] += np.sum(self.weighted_reward)
+                reward[agent_id] += np.float64(50)
 
         return reward
 
