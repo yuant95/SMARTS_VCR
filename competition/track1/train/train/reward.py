@@ -167,8 +167,8 @@ class Reward(gym.Wrapper):
         
         # return self._dist_to_obstacles(agent_obs) - self._jerk_angular(agent_obs) - self._jerk_linear(agent_obs) - self._lane_center_offset(agent_obs)
     
-
-        dist_to_obs = 0.5 * np.tanh(self._dist_to_obstacles(agent_obs))
+        sigma_2second = 2.0
+        dist_to_obs = 0.5 * np.tanh(self._dist_to_obstacles(agent_obs) / sigma_2second)
         sigma = 0.4325
         lane_center_offset = 0.5 * np.exp(- self._lane_center_offset(agent_obs)/ (2*sigma))
 
@@ -261,7 +261,9 @@ class Reward(gym.Wrapper):
 
         return np.float64(dist)
 
+    # Return the distance in term of time to collide given current ego speed
     def _dist_to_obstacles(self, agent_obs: Dict[str, Dict[str, Any]]) -> np.float64:
+        no_obstacle = np.float64(40.0)
         rel_angle_th = np.pi * 40 / 180
         rel_heading_th = np.pi * 179 / 180
         w_dist = 0.05
@@ -276,7 +278,7 @@ class Reward(gym.Wrapper):
         # Set obstacle distance threshold using 3-second rule
         obstacle_dist_th = ego["speed"] * 3
         if obstacle_dist_th == 0:
-            return np.float64(0.0)
+            return no_obstacle
 
         # Get neighbors.
         nghbs = agent_obs["neighbors"]
@@ -291,7 +293,7 @@ class Reward(gym.Wrapper):
             if nghb_state[1] <= obstacle_dist_th
         ]
         if len(nghbs_state) == 0:
-            return np.float64(0.0)
+            return no_obstacle
 
         # Filter neighbors within ego's visual field.
         obstacles = []
@@ -310,7 +312,7 @@ class Reward(gym.Wrapper):
                 obstacles.append(nghb_state)
         nghbs_state = obstacles
         if len(nghbs_state) == 0:
-            return np.float64(0.0)
+            return no_obstacle
 
         # Filter neighbors by their relative heading to that of ego's heading.
         nghbs_state = [
@@ -320,7 +322,7 @@ class Reward(gym.Wrapper):
             if abs(nghbs["heading"][nghb_state[0]] - (ego["heading"])) <= rel_heading_th
         ]
         if len(nghbs_state) == 0:
-            return np.float64(0.0)
+            return no_obstacle
 
         # J_D : Distance to obstacles cost
         di = [nghb_state[1] for nghb_state in nghbs_state]
@@ -328,7 +330,7 @@ class Reward(gym.Wrapper):
         # j_d = np.amax(np.exp(-w_dist * di))
 
         # return np.float64(j_d)
-        return np.amax(di)
+        return np.amax(di)/ego["speed"]
 
     def _jerk_angular(self, agent_obs: Dict[str, Dict[str, Any]]) -> np.float64:
         ja_squared = np.sum(np.square(agent_obs["ego"]["angular_jerk"]))

@@ -256,19 +256,19 @@ if __name__ == "__main__":
         "--w1",
         help="Humanness: jerk angular + jerk linear + lane center offset",
         type=float,
-        default= 0.0
+        default= 0.2
     )
     parser.add_argument(
         "--w2",
         help="Time: -distance to goal",
         type=float,
-        default= 0.6
+        default= 0.5
     )
     parser.add_argument(
         "--w3",
         help="Rules: wrong way + speed limit.",
         type=float,
-        default= 0.4
+        default= 0.3
     )
     parser.add_argument(
         "--w4",
