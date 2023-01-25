@@ -146,13 +146,13 @@ class Reward(gym.Wrapper):
 
         return reward
 
-    # No need for this, penality for collision is ending the episode
+    # This is not used as training reward, but as a note of how many collision happens.
     def _completion(
         self, agent_obs: Dict[str, Dict[str, Any]]
     ) -> np.float64:
         if agent_obs["events"]["collisions"]:
             print(f"Collided.")
-            return np.float64(0.0)
+            return np.float64(1.0)
         return np.float64(0.0)
 
     # Only consider dist to obstacle and lane center for now
@@ -212,7 +212,9 @@ class Reward(gym.Wrapper):
         if change >=0:
             return 0.0
         else:
-            return np.tanh(abs(change))
+            # return np.tanh(abs(change))
+            # Test reward for as long as making progress
+            return 1.0
 
         # return np.exp(-abs(current_dist_to_goal-prev_dist_to_goal)/ 1000)
 

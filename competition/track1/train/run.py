@@ -206,7 +206,7 @@ if __name__ == "__main__":
         "--train_steps",
         help="Total training step",
         type=int,
-        default=5_000_000,
+        default=1_000_000,
     )
     parser.add_argument(
         "--checkpoint_freq",
@@ -218,13 +218,13 @@ if __name__ == "__main__":
         "--eval_eps",
         help="Number of evaluation epsiodes.",
         type=int,
-        default=100,
+        default=20,
     )
     parser.add_argument(
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=200_000,
+        default=50_000,
     )
     parser.add_argument(
         "--alg",
@@ -243,6 +243,7 @@ if __name__ == "__main__":
         help="Will load the model given the path",
         type=str,
         default=""
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_18_16_33_27/checkpoint/PPO_1000000_steps.zip"
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_19_15_20_52/checkpoint/PPO_1000000_steps",
     )
     parser.add_argument(
@@ -261,13 +262,13 @@ if __name__ == "__main__":
         "--w2",
         help="Time: -distance to goal",
         type=float,
-        default= 1.0
+        default= 0.6
     )
     parser.add_argument(
         "--w3",
         help="Rules: wrong way + speed limit.",
         type=float,
-        default= 0.0
+        default= 0.4
     )
     parser.add_argument(
         "--w4",
