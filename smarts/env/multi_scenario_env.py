@@ -167,6 +167,27 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
+    elif scenario == "ITRA_1_to_2lane_left_turn_t":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "ITRA"
+                / "ITRA_1_to_2lane_left_turn_t"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "4lane_t":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "sumo"
+                / "intersections"
+                / "4lane_t"
+            ),
+            "num_agent": 1,
+        }
     elif scenario == "3lane_merge_multi_agent":
         return {
             "scenario": str(
