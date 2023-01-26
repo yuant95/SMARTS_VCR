@@ -167,10 +167,10 @@ class Reward(gym.Wrapper):
         
         # return self._dist_to_obstacles(agent_obs) - self._jerk_angular(agent_obs) - self._jerk_linear(agent_obs) - self._lane_center_offset(agent_obs)
     
-        sigma_2second = 2.0
-        dist_to_obs = 0.5 * np.tanh(self._dist_to_obstacles(agent_obs) / sigma_2second)
-        sigma = 0.4325
-        lane_center_offset = 0.5 * np.exp(- self._lane_center_offset(agent_obs)/ (2*sigma))
+        sigma_dist = 1.5 # second
+        dist_to_obs = 0.5 * np.tanh(self._dist_to_obstacles(agent_obs) / sigma_dist)
+        sigma_center = 0.1 # percentage
+        lane_center_offset = 0.5 * np.exp(- self._lane_center_offset(agent_obs)/ (2*sigma_center))
 
         return dist_to_obs+lane_center_offset
         
@@ -181,7 +181,10 @@ class Reward(gym.Wrapper):
         score = np.float64(1.0)
         if agent_obs["events"]["wrong_way"]:
             print(f"Wrong way.")
-            score = np.float64(0.0)
+            score -= np.float64(0.5)
+        if agent_obs["events"]["on_shoulder"]:
+            print(f"On shoulder.")
+            score -= np.float64(0.5)
 
         # score -= self._speed_limit(agent_obs)
 
@@ -232,9 +235,9 @@ class Reward(gym.Wrapper):
             r -= np.float64(0.25)
 
         # Penalty for driving on road shoulder
-        if agent_obs["events"]["on_shoulder"]:
-            print(f"On shoulder")
-            r -= np.float64(0.25)
+        # if agent_obs["events"]["on_shoulder"]:
+        #     print(f"On shoulder")
+        #     r -= np.float64(0.25)
 
         if agent_obs["events"]["not_moving"]:
             r -= np.float64(0.25)

@@ -243,8 +243,9 @@ if __name__ == "__main__":
         help="Will load the model given the path",
         type=str,
         default=""
-        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_18_16_33_27/checkpoint/PPO_1000000_steps.zip"
-        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_19_15_20_52/checkpoint/PPO_1000000_steps",
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_24_16_49_01/checkpoint/PPO_1000000_steps.zip"
+        # default="/home/yuant426/Downloads/PPO_1000000_steps.zip",
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_24_12_57_47/checkpoint/PPO_1000000_steps.zip"
     )
     parser.add_argument(
         "--w0",
