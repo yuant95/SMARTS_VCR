@@ -1,6 +1,6 @@
 smarts:
   # Environment
-  sumo_gui: False # If True, enables sumo-gui display.
+  sumo_gui: True # If True, enables sumo-gui display.
   head: False
   img_meters: 50 # Observation image area size in meters.
   img_pixels: 112 # Observation image size in pixels.
@@ -9,10 +9,11 @@ smarts:
     # - "1_to_2lane_left_turn_c"
     # - "1_to_2lane_left_turn_t"
     # - "3lane_merge_single_agent"
-    - "3lane_cruise_single_agent"
+    # - "3lane_cruise_single_agent"
     # - "3lane_overtake"
     # - "4lane_t"
     # - "ITRA_1_to_2lane_left_turn_t"
+    - "3lane_cruise_single_agent_itra"
 
   # Training
   # epochs: 5_000 # Number of training loops.
