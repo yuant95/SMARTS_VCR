@@ -39,12 +39,25 @@ class invertedAiBoidAgent(Agent):
                         recurrent_state.packed[-4:] = [agent_states[index].center.x, agent_states[index].center.y, agent_states[index].orientation, agent_states[index].speed]
                         recurrent_states.append(recurrent_state)
 
-            res = iai.api.drive(
-                location=self.location, 
-                agent_states=agent_states, 
-                agent_attributes=agent_attributes, 
-                recurrent_states=recurrent_states,
-                get_birdview=False)
+            tries = 50
+            for i in range(0,tries):
+                try:
+                    res = iai.api.drive(
+                        location=self.location, 
+                        agent_states=agent_states, 
+                        agent_attributes=agent_attributes, 
+                        recurrent_states=recurrent_states,
+                        get_birdview=False)
+                except Exception as e:
+                    if i < tries - 1: # i is zero indexed
+                        print("Exception raised from iai.api.drive： {}".format(str(e)))
+                        print("Retrying sending the request {} times...".format(str(i)))
+                        continue
+                        
+                    else:
+                        raise e
+                else:
+                    break
             
             # Code for export birdview for debugging
 

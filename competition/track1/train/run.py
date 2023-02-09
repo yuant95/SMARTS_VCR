@@ -212,19 +212,19 @@ if __name__ == "__main__":
         "--checkpoint_freq",
         help="Save a model every checkpoint_freq calls to env.step().",
         type=int,
-        default=50_000,
+        default=10_000,
     )
     parser.add_argument(
         "--eval_eps",
         help="Number of evaluation epsiodes.",
         type=int,
-        default=20,
+        default=30,
     )
     parser.add_argument(
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=50_000,
+        default=25_000,
     )
     parser.add_argument(
         "--alg",
