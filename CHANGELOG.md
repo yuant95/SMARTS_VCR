@@ -10,12 +10,116 @@ Copy and pasting the git commit messages is __NOT__ enough.
 
 ## [Unreleased]
 ### Added
+- Added a zoo agent, named Control-and-Supervised-Learning, from NeurIPS 2022 submission. This zoo agent runs in benchmark `driving_smarts==0.0`.
+- Added a zoo agent, named Discrete Soft Actor Critic, from NeurIPS 2022 submission. This zoo agent runs in benchmark `driving_smarts==0.0`.
+### Changed
+### Deprecated
+### Fixed
+### Removed
+### Security
+
+## [1.0.4] # 2023-02-10
+### Added
+- Engine configuration utility that uses the following locations to allow configuration of the SMARTS engine. The engine consumes the configuration files from the following locations in the following priority: `./engine.ini`, `~/.smarts/engine.ini`, `$GLOBAL_USER/smarts/engine.ini`, and `${PYTHON_ENV}/lib/${PYTHON_VERSION}/site-packages/smarts/engine.ini`.
+- Added map source uri as `map_source` inside of `hiway-v1` reset info to indicate what the current map is on reset.
+- Added NGSIM documentation.
+- Added a zoo agent, named Interaction-Aware Motion Prediction, from NeurIPS2022 submission. This zoo agent runs in benchmark `driving_smarts==0.0`.
+- Added Agent Zoo documentation in ReadTheDocs.
+### Changed
+- Made changes in the docs to reflect `master` branch as the main development branch.
+- Enabled supplying agent locator directly to benchmark runner and removed the need for an intermediary config file. Updated benchmark docs to reflect this.
+- Individualised the agent instances in the `benchmark_runner_v0.py`.
+- Made driving_smarts_competition_v0 env configurable through supply of `AgentInterface`.
+- Observation of driving_smarts_competition_v0 env was fixed to be of type `ObservationOptions.unformatted`.
+### Deprecated
+### Fixed
+- Fixed an exit error that occurs when envision attempts to close down.
+- Clarified the actions for `ActionSpaceType.Continuous` and `ActionSpaceType.ActuatorDynamic` in their respective docstrings.
+- Excluded from wheel any scenario build files in pattern `smarts/**/build/**/*.xml`.
+- Fixed an unintended regression in the metrics.
+### Removed
+- Removed duplicated `smarts.env.gymnasium.action_conversion` module.
+### Security
+
+## [1.0.3] 2023-02-04
+### Added
+- Added action formatting option to `hiway-v0`.
+- Introduced `debug: serial: bool` option to driving smarts benchmark config.
+### Changed
+- Moved action and observation conversions from `smarts.env.gymnasium.utils` to `smarts.env.utils`.
+### Fixed
+- Fixed an issue where termination while envision is enabled but not connected would cause a flurry of broken pipe errors.
+- Fixed an issue where activating visdom would cause errors.
+- Fixed an issue where metrics break down with unformatted observations.
+- Fixed an issue where `hiway-v1` would cause an exception when using "unformatted" observations.
+- Unformatted actions and observations in `hiway-v0` provide `None` rather than an incorrect space.
+
+## [1.0.2] 2023-01-27
+### Added
+- The `hiway-v1` environment can now be configured to provide an "unformatted" observation. 
+### Changed
+- Scenario paths is no longer manually supplied to Envision server while setup. Scenario paths are automatically sent to Envision server from SMARTS during simulation startup phase.
+- Updated "hiway-v1" with `gymnasium` action spaces using new `ActionsSpaceFormatter` utility.
+### Fixed
+- Fixed an issue where a sensor detach call when a bubble vehicle exits a bubble could cause a program crash.
+- Fixed issue with "hiway-v0" where "agent_interfaces" was not populated.
+- Add missing `distance_travelled` to the `hiway-v1` observations.
+
+## [1.0.1] 2023-01-24
+### Fixed
+- Fixed issue where Driving SMARTS benchmark only did 2 evaluations per scenario instead of 50.
+- Removed unclosed file warnings from benchmark output.
+
+## [1.0.0] 2023-01-22
+### Added
+- Exposed `.glb` file metadata through the scenario `Scenario.map_glb_metadata` attribute.
+- Added single vehicle `Trip` into type. 
+- Added new video record ultility using moviepy.
+- Added distance check between bubble and vehicle to avoid generating unnecessary cursors.
+- Added `ConfigurableZone` for `Zone` object to types which enable users to build bubble by providing coordinates of the polygon.
+- Added "SMARTS Performance Diagnostic" development tool for evaluating the simulation performance.
+- Added a "All Simulation" button on the header of Envision and made small-windowed simulation(s) in the "All Simulations" page clickable to maximize.
+- An env wrapper `Metrics` is introduced to compute agents' performance metrics.
+- Extracted `TraciConn` to the SMARTS utilities as a simplified utility to help with connecting to `TraCI`.
+- Added `HiWayV1` `gymansium` environment to smarts. This can be referenced through gymnasium as `smarts.env:hiway-v1`.
+- Added `scl benchmark run` and `scl benchmark list` for running and listing benchmarks.
+- Added the "driving_smarts" benchmark as a feature of the new `scl benchmark` suite.
+- Added `smarts.benchmark` module which deals with running benchmarks.
+  - Added `smarts.core.entrypoints.benchmark_runner_v0` which is the initial benchmark fully integrated into `smarts`.
+- Added documentation with benchmark information.
+### Deprecated
+### Changed
+- Minimum `SUMO` version allowed by `SumoTrafficSimulation` is now `1.10.0`.
+- The `ProviderManager` interface now uses a string id for removal of an actor instead of an actor state.
+- Renamed many fields of the `smarts.core.agent_interface.AgentInterface` dataclass: `lidar` -> `lidar_point_cloud`, `waypoints` -> `waypoint_paths`, `rgb` -> `top_down_rgb`, `neighborhood_vehicles` -> `neighborhood_vehicle_states`, and `ogm` -> `occupancy_grid_map`.
+- Renamed `smarts.core.provider.Provider`'s `action_spaces` to `actions`.
+- Moved `VehicleObservation`, `EgoVehicleObservation`, `Observation`, `RoadWaypoints`, `GridMapMetadata`, `TopDownRGB`, `OccupancyGridMap`, `DrivableAreaGridMap`, `ViaPoint`, `Vias`, `SignalObservation`, and `Collision` from `smarts.core.sensors` to `smarts.core.observations`. They are now all typed `NamedTuples`.
+- Renamed `GridMapMetadata` field `camera_pos` to `camera_position`.
+### Removed
+- Removed all of PyMarl contents, including related interface adapter, environments, and tests.
+- Removed ray usage example.
+- Moved ULTRA from `huawei-noah/SMARTS` to `smarts-project/smarts-project.rl` repository.
+- Removed observation_adapter, reward_adapter, and info_adapter, from `hiway_env`.
+- Removed `action_space` field from the `smarts.core.agent_interface.AgentInterface` dataclass.
+### Fixed
+- Updated the RL example `racing` to use `smarts[camera_obs]==0.7.0rc0` and continuous flowing traffic scenario. Simplified the `racing` RL example folder structure.
+- Envision "near realtime" mode bugfix
+- Corrected an issue where traffic lights in SUMO traffic simulation could be empty and cause a termination of the simulation.
+- Fixed an issue where vehicles could cause SMARTS to terminate from being in multiple providers.
+- Fixed an issue where `sumo_traffic_simulation` would disconnect on a non-terminal exception.
+- SMARTS now aggressively attempts to connect to a SUMO process as long as the SUMO process remains alive.
+- SUMO traffic simulation `route_for_vehicle` had semantic errors and now works again.
+- SUMO is now supported up to version `1.15.0`. Versions of SUMO `1.13.0` and onward are forced to reset rather than reload because of errors with hot resetting versions starting with `1.13.0`. 
+### Security
+
+## [0.7.0rc0] 2022-10-31
+### Added
 - Added a basic background traffic ("social vehicle") provider as an alternative to the SUMO traffic simulator.  This can be selected using the new `"engine"` argument to `Traffic` in Scenario Studio.
 - Added a `multi-scenario-v0` environment which can build any of the following scenario, namely, `1_to_2lane_left_turn_c`, `1_to_2lane_left_turn_t`, `3lane_merge_multi_agent`, `3lane_merge_single_agent`, `3lane_cruise_multi_agent`, `3lane_cruise_single_agent`, `3lane_cut_in`, and `3lane_overtake`. Additional scenarios can also be built by supplying the paths to the scenario directories.
 - Added ego's mission details into the `FormatObs` wrapper.
 - Added `SmartsLaneChangingModel` and `SmartsJunctionModel` to types available for use with the new smarts traffic engine within Scenario Studio.
 - Added option to `AgentInterface` to include traffic signals (lights) in `EgoVehicleObservation` objects.
-- Added SMARTS competition code, consisting of Codalab, training, submission, evaluation, and scenario files.
+- Added the ability to hover over vehicles and roadmap elements in Envision to see debug info.
 
 ### Deprecated
 - Deprecated a few things related to traffic in the `Scenario` class, including the `route` argument to the `Scenario` initializer, the `route`, `route_filepath` and `route_files_enabled` properties, and the `discover_routes()` static method.  In general, the notion of "route" (singular) here is being replaced with "`traffic_specs`" (plural) that allow for specifying traffic controlled by the SMARTS engine as well as Sumo.
@@ -30,6 +134,10 @@ Copy and pasting the git commit messages is __NOT__ enough.
 - Renamed `examples/history_vehicles_replacement_for_imitation_learning.py` to `examples/traffic_histories_vehicle_replacement.py`.
 - `SumoTrafficSimulation` will now try to hand-off the vehicles it controls to the new SMARTS background traffic provider by default if the Sumo provider crashes.
 - SMARTS now gives an error about a suspected lack of junction edges in sumo maps on loading of them.
+- Scenario build artifacts are now cached and built incrementally, meaning that subsequent builds (without the `clean` option) will only build the artifacts that depend on the changed DSL objects
+- All build artifacts are now in a local `build/` directory in each scenario's directory
+- The `allow_offset_map` option has been removed. This must now be set in a `MapSpec` object in the scenario.py if this option is needed
+- All scenarios must have a `scenario.py`, and must call `gen_scenario()`, rather than the individual `gen_` functions, which are now private
 
 ### Removed
 - Removed support for deprecated json-based and YAML formats for traffic histories.
@@ -48,8 +156,9 @@ Copy and pasting the git commit messages is __NOT__ enough.
 - Fixed issues with Envision. The playback bar and realtime mode now work as expected.
 - Fixed a bug where traffic history vehicles would not get traffic signal observations
 - Fixed a bug where envision would not work in some versions of python due to nuances of `importlib.resource.path()`.
+- Fixed an issue with incorrect vehicle sizes in Envision.
 
-## [0.6.1]
+## [0.6.1] 2022-08-02
 ### Added
 - Added standard intersection environment, `intersection-v0`, for reinforcement learning where agents have to make an unprotected left turn in the presence of traffic.
 - Added an online RL example for solving the `intersection-v0` environment, using PPO algorithm from Stable Baselines3 library. An accompanying Colab example is also provided.
@@ -67,7 +176,7 @@ Copy and pasting the git commit messages is __NOT__ enough.
 - Unpack utility now unpacks dataclass attributes.
 - Trap manager now uses elapsed sim time rather than step delta to associate with time.
 
-## [0.6.1rc1] 15-04-18
+## [0.6.1rc1] 2022-04-18
 ### Added
 - Added example scenario for importing the NGSIM `peachtree` dataset.
 - Added example scenario for importing the INTERACTION `merging` dataset
@@ -81,7 +190,7 @@ Copy and pasting the git commit messages is __NOT__ enough.
 - Fixed Issue #1321 such that numpy's `sliding_window_view()` is no longer needed for NGSIM traffic histories.
 - Fixed NGSIM traffic history import bugs (see Issues #1354 and #1402).
 
-## [0.6.1rc0] 15-04-16
+## [0.6.1rc0] 2022-04-16
 ### Added
 - Added `smarts/waymo/waymo_browser.py`, a text-based utility to explore and export scenarios from the Waymo Motion dataset to SMARTS scenarios. 
 - Added `get_vehicle_start_time()` method for scenarios with traffic history data.  See Issue #1210.

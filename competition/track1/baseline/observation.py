@@ -52,8 +52,8 @@ class FilterObs(gym.ObservationWrapper):
                         "rgb": gym.spaces.Box(
                             low=0,
                             high=255,
-                            shape=(agent_obs_space["rgb"].shape[-1],)
-                            + agent_obs_space["rgb"].shape[:-1],
+                            shape=(agent_obs_space["top_down_rgb"].shape[-1],)
+                            + agent_obs_space["top_down_rgb"].shape[:-1],
                             dtype=np.uint8,
                         ),
                         "goal_distance": gym.spaces.Box(

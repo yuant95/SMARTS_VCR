@@ -30,31 +30,34 @@ class FormatAction(gym.ActionWrapper):
     """Sets gym-compliant action space for SMARTS environment.
 
     Note:
-        (a) Only "ActionSpaceType.Continuous", "ActionSpaceType.Lane", and
-            "ActionSpaceType.TargetPose" are supported by this wrapper now.
-        (c) All agents should have the same action space.
-        (b) Action adapters should not be used inside the `step` method of the
-            base environment.
+
+        (a) Only ``ActionSpaceType.Continuous``, ``ActionSpaceType.Lane``,
+            ``ActionSpaceType.ActuatorDynamic``, and `ActionSpaceType.TargetPose``
+            are supported by this wrapper now.
+
+        (b) All agents should have the same action space.
     """
 
     def __init__(self, env: gym.Env, space: ActionSpaceType):
-        """Sets identical action space, denoted by `space`, for all agents.
+        """Sets identical action space, denoted by ``space``, for all agents.
 
-        Args:
-            env (gym.Env): Gym env to be wrapped.
-            space (str): Denotes the desired action space type from
-                `smarts.core.controllers.ActionSpaceType`.
+        :param env: Gym env to be wrapped.
+        :type env: class: gym.Env
+        :param space: Denotes the desired action space type from
+                ``smarts.core.controllers.ActionSpaceType``.
+        :type space: str
         """
         super().__init__(env)
         space_map = {
             "Continuous": _continuous,
             "Lane": _lane,
+            "ActuatorDynamic": _actuator_dynamic,
             "TargetPose": _target_pose,
         }
         self._wrapper, action_space = space_map.get(space.name)()
 
         self.action_space = gym.spaces.Dict(
-            {agent_id: action_space for agent_id in self.agent_specs.keys()}
+            {agent_id: action_space for agent_id in self.agent_interfaces.keys()}
         )
 
     def action(self, action):
@@ -91,6 +94,19 @@ def _lane() -> Tuple[Callable[[Dict[str, int]], Dict[str, str]], gym.Space]:
 
     def wrapper(action: Dict[str, int]) -> Dict[str, str]:
         return {k: action_map[v] for k, v in action.items()}
+
+    return wrapper, space
+
+
+def _actuator_dynamic() -> Tuple[
+    Callable[[Dict[str, np.ndarray]], Dict[str, np.ndarray]], gym.Space
+]:
+    space = gym.spaces.Box(
+        low=np.array([0.0, 0.0, -1.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float32
+    )
+
+    def wrapper(action: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        return {k: v.astype(np.float32) for k, v in action.items()}
 
     return wrapper, space
 

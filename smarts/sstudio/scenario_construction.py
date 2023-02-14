@@ -17,62 +17,117 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
+import logging
+import multiprocessing
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+from multiprocessing import Process, Semaphore, synchronize
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, List, Optional
+
+logger = logging.getLogger(__name__)
+LOG_DEFAULT = logger.info
 
 
-def build_single_scenario(
-    clean: bool,
-    allow_offset_map: bool,
+def build_scenario(
     scenario: str,
-    seed: Optional[int] = None,
-    log: Optional[Callable[[Any], None]] = None,
+    clean: bool = False,
+    seed: int = 42,
+    log: Callable[[Any], None] = LOG_DEFAULT,
 ):
     """Build a scenario."""
+
+    log(f"Building: {scenario}")
 
     if clean:
         clean_scenario(scenario)
 
     scenario_root = Path(scenario)
-    scenario_root_str = str(scenario_root)
 
     scenario_py = scenario_root / "scenario.py"
     if scenario_py.exists():
         _install_requirements(scenario_root, log)
-        if seed is not None:
-            with tempfile.NamedTemporaryFile("w", suffix=".py", dir=scenario_root) as c:
-                with open(scenario_py, "r") as o:
-                    c.write(f"import smarts.core; smarts.core.seed({seed});\n")
-                    c.write(o.read())
-
-                c.flush()
-                subprocess.check_call(
-                    [sys.executable, Path(c.name).name], cwd=scenario_root
+        with tempfile.NamedTemporaryFile("w", suffix=".py", dir=scenario_root) as c:
+            with open(scenario_py, "r") as o:
+                c.write(
+                    f"from smarts.core import seed as smarts_seed; smarts_seed({seed});\n"
                 )
-        else:
-            subprocess.check_call([sys.executable, "scenario.py"], cwd=scenario_root)
+                c.write(o.read())
 
-    from smarts.core.scenario import Scenario
+            c.flush()
+            subprocess.check_call(
+                [sys.executable, Path(c.name).name], cwd=scenario_root
+            )
 
-    traffic_histories = Scenario.discover_traffic_histories(scenario_root_str)
-    # don't shift maps for scenarios with traffic histories since history data must line up with map
-    shift_to_origin = not allow_offset_map and not bool(traffic_histories)
 
-    map_spec = Scenario.discover_map(scenario_root_str, shift_to_origin=shift_to_origin)
+def build_scenarios(
+    scenarios: List[str],
+    clean: bool = False,
+    seed: int = 42,
+    log: Callable[[Any], None] = LOG_DEFAULT,
+):
+    """Build a list of scenarios."""
+
+    if not scenarios:
+        # nargs=-1 in combination with a default value is not supported
+        # if scenarios is not given, set /scenarios as default
+        scenarios = ["scenarios"]
+
+    concurrency = max(1, multiprocessing.cpu_count() - 1)
+    sema = Semaphore(concurrency)
+    all_processes = []
+    for scenarios_path in scenarios:
+        for subdir, _, _ in os.walk(scenarios_path):
+            if _is_scenario_folder_to_build(subdir):
+                p = Path(subdir)
+                scenario = f"{scenarios_path}/{p.relative_to(scenarios_path)}"
+                proc = Process(
+                    target=_build_scenario_proc,
+                    kwargs={
+                        "scenario": scenario,
+                        "semaphore": sema,
+                        "clean": clean,
+                        "seed": seed,
+                        "log": log,
+                    },
+                )
+                all_processes.append(proc)
+                proc.start()
+
+    for proc in all_processes:
+        proc.join()
+
+
+def _build_scenario_proc(
+    scenario: str,
+    semaphore: synchronize.Semaphore,
+    clean: bool,
+    seed: int,
+    log: Callable[[Any], None] = LOG_DEFAULT,
+):
+
+    semaphore.acquire()
+    try:
+        build_scenario(scenario=scenario, clean=clean, seed=seed, log=log)
+    finally:
+        semaphore.release()
+
+
+def _is_scenario_folder_to_build(path: str) -> bool:
+    if os.path.exists(os.path.join(path, "waymo.yaml")):
+        # for now, don't try to build Waymo scenarios...
+        return False
+    if os.path.exists(os.path.join(path, "scenario.py")):
+        return True
+    from smarts.sstudio.types import MapSpec
+
+    map_spec = MapSpec(path)
     road_map, _ = map_spec.builder_fn(map_spec)
-    if not road_map:
-        log(
-            "No reference to a RoadNetwork file was found in {}, or one could not be created. "
-            "Please make sure the path passed is a valid Scenario with RoadNetwork file required "
-            "(or a way to create one) for scenario building.".format(scenario_root_str)
-        )
-        return
-
-    road_map.to_glb(os.path.join(scenario_root, "map.glb"))
+    return road_map is not None
 
 
 def clean_scenario(scenario: str):
@@ -94,15 +149,21 @@ def clean_scenario(scenario: str):
         "history_mission.pkl",
         "*.shf",
         "*-AUTOGEN.net.xml",
+        "build.db",
     ]
     p = Path(scenario)
+
+    shutil.rmtree(p / "build", ignore_errors=True)
+    shutil.rmtree(p / "traffic", ignore_errors=True)
+    shutil.rmtree(p / "social_agents", ignore_errors=True)
+
     for file_name in to_be_removed:
         for f in p.glob(file_name):
             # Remove file
             f.unlink()
 
 
-def _install_requirements(scenario_root, log: Optional[Callable[[Any], None]] = None):
+def _install_requirements(scenario_root, log: Callable[[Any], None] = LOG_DEFAULT):
     import os
 
     requirements_txt = scenario_root / "requirements.txt"
@@ -128,10 +189,7 @@ def _install_requirements(scenario_root, log: Optional[Callable[[Any], None]] = 
             str(requirements_txt),
         ]
 
-        if log is not None:
-            log(
-                f"Installing scenario dependencies via '{' '.join(pip_install_cmd)}'"
-            )
+        log(f"Installing scenario dependencies via '{' '.join(pip_install_cmd)}'")
 
         try:
             subprocess.check_call(pip_install_cmd, stdout=subprocess.DEVNULL)

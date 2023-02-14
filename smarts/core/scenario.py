@@ -37,6 +37,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Union,
 )
 
 import cloudpickle
@@ -65,6 +66,16 @@ from smarts.sstudio.types import MapSpec
 from smarts.sstudio.types import Via as SSVia
 
 VehicleWindow = TrafficHistory.TrafficHistoryVehicleWindow
+
+# Suppress trimesh deprecation warning
+
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message="Please use `coo_matrix` from the `scipy.sparse` namespace, the `scipy.sparse.coo` namespace is deprecated.",
+        category=DeprecationWarning,
+    )
+    import trimesh  # only suppress the warnings caused by trimesh
 
 
 class Scenario:
@@ -106,8 +117,9 @@ class Scenario:
                 "Scenario route property has been deprecated in favor of traffic_specs.  Please update your code.",
                 category=DeprecationWarning,
             )
-            traffic_path = os.path.join(scenario_root, "traffic")
+            traffic_path = os.path.join(scenario_root, "build", "traffic")
             self._traffic_specs = [os.path.join(traffic_path, route)]
+
         self._missions = missions or {}
         self._bubbles = Scenario._discover_bubbles(scenario_root)
         self._social_agents = social_agents or {}
@@ -276,7 +288,7 @@ class Scenario:
     @staticmethod
     def discover_agent_missions_count(scenario_root):
         """Retrieve the agent missions from the given scenario directory."""
-        missions_file = os.path.join(scenario_root, "missions.pkl")
+        missions_file = os.path.join(scenario_root, "build", "missions.pkl")
         if os.path.exists(missions_file):
             with open(missions_file, "rb") as f:
                 return len(pickle.load(f))
@@ -297,7 +309,7 @@ class Scenario:
         road_map, _ = Scenario.build_map(scenario_root)
 
         missions = []
-        missions_file = os.path.join(scenario_root, "missions.pkl")
+        missions_file = os.path.join(scenario_root, "build", "missions.pkl")
         if os.path.exists(missions_file):
             with open(missions_file, "rb") as f:
                 missions = pickle.load(f)
@@ -331,7 +343,7 @@ class Scenario:
         parameters of the specified surface patch.
         """
         surface_patches = []
-        friction_map_file = os.path.join(scenario_root, "friction_map.pkl")
+        friction_map_file = os.path.join(scenario_root, "build", "friction_map.pkl")
         if os.path.exists(friction_map_file):
             with open(friction_map_file, "rb") as f:
                 map_surface_patches = pickle.load(f)
@@ -362,7 +374,7 @@ class Scenario:
         )
         road_map, _ = Scenario.build_map(scenario_root)
 
-        social_agents_path = os.path.join(scenario_root, "social_agents")
+        social_agents_path = os.path.join(scenario_root, "build", "social_agents")
         if not os.path.exists(social_agents_path):
             return []
 
@@ -479,7 +491,7 @@ class Scenario:
         Returns:
             A new map spec.
         """
-        path = os.path.join(scenario_root, "map_spec.pkl")
+        path = os.path.join(scenario_root, "build", "map", "map_spec.pkl")
         if not os.path.exists(path):
             # Use our default map builder if none specified by scenario...
             return MapSpec(
@@ -508,14 +520,16 @@ class Scenario:
         return sorted(
             [
                 os.path.basename(r)
-                for r in glob.glob(os.path.join(scenario_root, "traffic", "*.rou.xml"))
+                for r in glob.glob(
+                    os.path.join(scenario_root, "build", "traffic", "*.rou.xml")
+                )
             ]
         )
 
     @staticmethod
     def discover_traffic(scenario_root: str) -> List[Optional[List[str]]]:
         """Discover the traffic spec files in the given scenario."""
-        traffic_path = os.path.join(scenario_root, "traffic")
+        traffic_path = os.path.join(scenario_root, "build", "traffic")
         # combine any SMARTS and SUMO traffic together...
         sumo_traffic = glob.glob(os.path.join(traffic_path, "*.rou.xml"))
         smarts_traffic = glob.glob(os.path.join(traffic_path, "*.smarts.xml"))
@@ -527,7 +541,7 @@ class Scenario:
 
     @staticmethod
     def _discover_bubbles(scenario_root):
-        path = os.path.join(scenario_root, "bubbles.pkl")
+        path = os.path.join(scenario_root, "build", "bubbles.pkl")
         if not os.path.exists(path):
             return []
 
@@ -558,12 +572,13 @@ class Scenario:
             Start(
                 np.array([pos_x + hhx, pos_y + hhy]),
                 Heading(heading),
-                from_front_bumper=False,
+                from_front_bumper=True,
             ),
             speed,
         )
 
-    def _get_vehicle_goal(self, vehicle_id: str) -> Point:
+    def get_vehicle_goal(self, vehicle_id: str) -> Point:
+        """Get the final position for a history vehicle."""
         final_exit_time = self._traffic_history.vehicle_final_exit_time(vehicle_id)
         final_pose = self._traffic_history.vehicle_pose_at_time(
             vehicle_id, final_exit_time
@@ -612,7 +627,7 @@ class Scenario:
              vehicle leaves the map.
         """
         start, speed = self.get_vehicle_start_at_time(veh_id, trigger_time)
-        veh_goal = self._get_vehicle_goal(veh_id)
+        veh_goal = self.get_vehicle_goal(veh_id)
         entry_tactic = default_entry_tactic(speed)
         # create a positional mission and a traverse mission
         positional_mission = Mission(
@@ -642,21 +657,19 @@ class Scenario:
         ] = None,
     ) -> Sequence[Mission]:
         """Discovers vehicle missions for the given window of time.
-        Args:
-            exists_at_or_after(float):
-                The starting time of any vehicles to query for.
-            ends_before(float):
-                The last point in time a vehicle should be in the simulation. Vehicles ending after
-                that time are not considered.
-            minimum_vehicle_window(float):
-                The minimum time that a vehicle must be in the simulation to be considered for a
-                mission.
-            filter(func(Sequence[TrafficHistoryVehicleWindow]) -> Sequence[TrafficHistoryVehicleWindow]):
-                A filter which passes in traffic vehicle information and then should be used purely
-                to filter the sequence down.
-        Returns:
-            (List[Mission]): A set of missions derived from the traffic history.
 
+        :param exists_at_or_after: The starting time of any vehicles to query for.
+        :type exists_at_or_after: float
+        :param ends_before: The last point in time a vehicle should be in the simulation.
+            Vehicles ending after that time are not considered.
+        :type ends_before: float
+        :param minimum_vehicle_window: The minimum time that a vehicle must be in the simulation
+            to be considered for a mission.
+        :type minimum_vehicle_window: float
+        :param filter: A filter in the form of ``(func(Sequence[TrafficHistoryVehicleWindow]) -> Sequence[TrafficHistoryVehicleWindow])``,
+            which passes in traffic vehicle information and then should be used purely to filter the sequence down.
+        :return: A set of missions derived from the traffic history.
+        :rtype: List[smarts.core.plan.Mission]
         """
         vehicle_windows = self._traffic_history.vehicle_windows_in_range(
             exists_at_or_after, ends_before, minimum_vehicle_window
@@ -695,9 +708,10 @@ class Scenario:
     @staticmethod
     def discover_traffic_histories(scenario_root: str):
         """Finds all existing traffic history files in the specific scenario."""
+        build_dir = Path(scenario_root) / "build"
         return [
             entry
-            for entry in os.scandir(scenario_root)
+            for entry in os.scandir(str(build_dir))
             if entry.is_file() and entry.path.endswith(".shf")
         ]
 
@@ -707,7 +721,7 @@ class Scenario:
         the corresponding SMARTS mission types.
         """
 
-        def resolve_offset(offset, lane_length):
+        def resolve_offset(offset: Union[str, float], lane_length: float):
             # epsilon to ensure we are within this edge and not the subsequent one
             epsilon = 1e-6
             lane_length -= epsilon
@@ -720,7 +734,9 @@ class Scenario:
             else:
                 return float(offset)
 
-        def to_position_and_heading(road_id, lane_index, offset, road_map):
+        def to_position_and_heading(
+            road_id: str, lane_index: int, offset: Union[str, float], road_map: RoadMap
+        ):
             road = road_map.road_by_id(road_id)
             lane = road.lane_at_index(lane_index)
             offset = resolve_offset(offset, lane.length)
@@ -856,7 +872,7 @@ class Scenario:
     @property
     def name(self) -> str:
         """The name of the scenario."""
-        return os.path.basename(os.path.normpath(self._root))
+        return os.path.normpath(self._root)
 
     @property
     def root_filepath(self) -> str:
@@ -939,7 +955,21 @@ class Scenario:
     @property
     def map_glb_filepath(self):
         """The map geometry filepath."""
-        return os.path.join(self._root, "map.glb")
+        return os.path.join(self._root, "build", "map", "map.glb")
+
+    @property
+    def map_glb_metadata(self):
+        """The metadata for the current map glb file."""
+        metadata = self.map_glb_meta_for_file(self.map_glb_filepath)
+        return metadata
+
+    @staticmethod
+    @lru_cache(1)
+    def map_glb_meta_for_file(filepath):
+        """The map metadata given a file."""
+
+        scene = trimesh.load(filepath)
+        return scene.metadata
 
     def unique_sumo_log_file(self):
         """A unique logging file for SUMO logging."""

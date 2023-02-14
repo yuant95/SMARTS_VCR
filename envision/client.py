@@ -25,7 +25,6 @@ import logging
 import multiprocessing
 import re
 import time
-import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -77,6 +76,8 @@ class CustomJSONEncoder(json.JSONEncoder):
             return bool(obj)
         elif isinstance(obj, np.ndarray):
             return [self.default(x) for x in obj]
+        elif isinstance(obj, Path):
+            return str(obj)
 
         return super().default(obj)
 
@@ -123,6 +124,7 @@ class Client:
             endpoint = "ws://localhost:8081"
 
         self._logging_process = None
+        self._logging_queue = None
         if output_dir:
             output_dir = Path(f"{output_dir}/{int(time.time())}")
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -171,7 +173,7 @@ class Client:
         with path.open("w", encoding="utf-8") as f:
             while True:
                 state = queue.get()
-                if type(state) is Client.QueueDone:
+                if isinstance(state, Client.QueueDone) or state is None:
                     break
 
                 if not isinstance(state, str):
@@ -208,7 +210,7 @@ class Client:
     def _connect(
         self,
         endpoint,
-        state_queue,
+        state_queue: multiprocessing.Queue,
         wait_between_retries: float = 0.05,
         data_formatter_args: Optional[EnvisionDataFormatterArgs] = None,
     ):
@@ -258,11 +260,11 @@ class Client:
 
             while True:
                 state = state_queue.get()
-                if type(state) is Client.QueueDone:
-                    ws.close()
+                if isinstance(state, Client.QueueDone) or state is None:
                     break
 
                 optionally_serialize_and_write(state, ws)
+            ws.close()
 
         def run_socket(endpoint, wait_between_retries):
             nonlocal connection_established
@@ -278,6 +280,8 @@ class Client:
 
                 if not connection_established:
                     self._log.info(f"Attempt {tries} to connect to Envision.")
+                    if not state_queue.empty():
+                        break
                 else:
                     # No information left to send, connection is likely done
                     if state_queue.empty():
@@ -291,9 +295,12 @@ class Client:
                 tries += 1
                 time.sleep(wait_between_retries)
 
-        run_socket(endpoint, wait_between_retries)
+        try:
+            run_socket(endpoint, wait_between_retries)
+        except (BrokenPipeError, KeyboardInterrupt, EOFError):
+            pass
 
-    def send(self, state: types.State):
+    def send(self, state: Union[types.State, types.Preamble]):
         """Send the given envision state to the remote as the most recent state."""
         if not self._headless and self._process.is_alive():
             self._state_queue.put(state)
@@ -311,17 +318,13 @@ class Client:
         if self._state_queue:
             self._state_queue.put(Client.QueueDone())
 
+        if self._logging_queue:
+            self._logging_queue.put(Client.QueueDone())
+
         if self._process:
             self._process.join(timeout=3)
             self._process = None
 
-        if self._state_queue:
-            self._state_queue.close()
-            self._state_queue = None
-
-        if self._logging_process and self._logging_queue:
-            self._logging_queue.put(Client.QueueDone())
+        if self._logging_process:
             self._logging_process.join(timeout=3)
             self._logging_process = None
-            self._logging_queue.close()
-            self._logging_queue = None

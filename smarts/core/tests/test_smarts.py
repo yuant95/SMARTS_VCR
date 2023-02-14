@@ -46,17 +46,16 @@ def scenarios():
     )
     scenario = Scenario(
         scenario_root="scenarios/sumo/loop",
-        traffic_specs=["scenarios/sumo/loop/traffic/basic.rou.xml"],
+        traffic_specs=["scenarios/sumo/loop/build/traffic/basic.rou.xml"],
         missions={"Agent-007": mission},
     )
     return cycle([scenario])
-
 
 @pytest.fixture
 def smarts():
     buddha = AgentInterface(
         max_episode_steps=1000,
-        neighborhood_vehicles=NeighborhoodVehicles(radius=20),
+        neighborhood_vehicle_states=NeighborhoodVehicles(radius=20),
         action=ActionSpaceType.Lane,
     )
     agents = {"Agent-007": buddha}

@@ -65,6 +65,7 @@ class MotionPlannerController:
         action: Optional[np.ndarray],
     ):
         """Performs an action adapting to the underlying chassis.
+<<<<<<< HEAD
         Args:
             controller_state:
                 the previous controller state from this controller
@@ -75,6 +76,14 @@ class MotionPlannerController:
             action:
                 [x, y, heading, seconds_into_future]
                  pose we would like to have this many seconds into the future
+=======
+
+        Args:
+            controller_state (MotionPlannerControllerState): The previous controller state from this controller.
+            dt (float): Amount of time that has passed since the last action.
+            vehicle (Vehicle): Vehicle to control.
+            action: Pose denoted by [x_coordinate, y_coordinate, heading, t_s], at t_s seconds into future.
+>>>>>>> upstream/master
         """
         assert isinstance(vehicle.chassis, BoxChassis)
         assert len(action) >= 4, f"{action}"

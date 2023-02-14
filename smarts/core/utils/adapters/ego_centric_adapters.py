@@ -20,31 +20,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 import math
-from dataclasses import is_dataclass
-from dataclasses import replace as dc_replace
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 from smarts.core.controllers import ActionSpaceType
 from smarts.core.coordinates import Heading
+from smarts.core.observations import Observation, ViaPoint
 from smarts.core.plan import PositionalGoal, Via
-from smarts.core.sensors import Observation, ViaPoint
-from smarts.core.utils.file import isnamedtupleinstance
+from smarts.core.utils.file import replace as _replace
 from smarts.core.utils.math import (
     position_to_ego_frame,
     world_position_from_ego_frame,
     wrap_value,
 )
-
-
-def _replace(obj: Any, **kwargs):
-    if is_dataclass(obj):
-        return dc_replace(obj, **kwargs)
-    elif isnamedtupleinstance(obj):
-        return obj._replace(**kwargs)
-
-    raise ValueError("Must be a namedtuple or dataclass.")
 
 
 def ego_centric_observation_adapter(obs: Observation, *args: Any, **kwargs: Any) -> Any:
@@ -99,7 +88,7 @@ def ego_centric_observation_adapter(obs: Observation, *args: Any, **kwargs: Any)
     replace_metadata = lambda cam_obs: _replace(
         cam_obs,
         metadata=_replace(
-            cam_obs.metadata, camera_pos=(0, 0, 0), camera_heading_in_degrees=0
+            cam_obs.metadata, camera_position=(0, 0, 0), camera_heading_in_degrees=0
         ),
     )
 
@@ -310,6 +299,7 @@ def get_egocentric_adapters(action_space: ActionSpaceType):
         ActionSpaceType.TargetPose: _egocentric_target_pose_adapter,
         ActionSpaceType.MultiTargetPose: _egocentric_multi_target_pose_adapter,
         ActionSpaceType.Direct: _egocentric_direct_adapter,
+        ActionSpaceType.Empty: lambda _: None,
     }
 
     return _pair_adapters(ego_centric_observation_adapter, m.get(action_space))

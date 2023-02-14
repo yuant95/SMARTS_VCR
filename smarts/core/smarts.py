@@ -29,11 +29,10 @@ from scipy.spatial.distance import cdist
 from envision import types as envision_types
 from envision.client import Client as EnvisionClient
 from smarts import VERSION
-from smarts.core.chassis import BoxChassis
 from smarts.core.plan import Plan
 from smarts.core.utils.logging import timeit
 
-from . import models
+from . import config, models
 from .actor import ActorRole, ActorState
 from .agent_interface import AgentInterface
 from .agent_manager import AgentManager
@@ -48,10 +47,10 @@ from .bubble_manager import BubbleManager
 from .controllers import ActionSpaceType
 from .coordinates import BoundingBox, Point
 from .external_provider import ExternalProvider
+from .observations import Collision, Observation
 from .provider import Provider, ProviderManager, ProviderRecoveryFlags, ProviderState
 from .road_map import RoadMap
 from .scenario import Mission, Scenario
-from .sensors import Collision, Observation
 from .signal_provider import SignalProvider
 from .signals import SignalLightState, SignalState
 from .sumo_traffic_simulation import SumoTrafficSimulation
@@ -89,16 +88,16 @@ class SMARTSDestroyedError(Exception):
 
 class SMARTS(ProviderManager):
     """The core SMARTS simulator. This is the direct interface to all parts of the simulation.
+
     Args:
-        agent_interfaces: The interfaces providing SMARTS with the understanding of what features each agent needs.
-        traffic_sims: An optional list of traffic simulators for providing non-agent traffic.
-        envision: An envision client for connecting to an envision visualization server.
-        visdom: A visdom client for connecting to a visdom visualization server.
-        fixed_timestep_sec: The fixed timestep that will be default if time is not otherwise specified at step.
-        reset_agents_only: When specified the simulation will continue use of the current scenario.
-        zoo_addrs: The (ip:port) values of remote agent workers for externally hosted agents.
-        external_provider: Creates a special provider `SMARTS.external_provider` that allows for inserting state.
-        config: The simulation configuration file for unexposed configuration.
+        agent_interfaces (Dict[str, AgentInterface]): The interfaces providing SMARTS with the understanding of what features each agent needs.
+        traffic_sims (Optional[List[TrafficProvider]], optional): An optional list of traffic simulators for providing non-agent traffic. Defaults to None.
+        envision (Optional[EnvisionClient], optional): An envision client for connecting to an envision visualization server. Defaults to None.
+        visdom (Optional[VisdomClient], optional): A visdom client for connecting to a visdom visualization server. Defaults to None.
+        fixed_timestep_sec (Optional[float], optional): The fixed timestep that will be default if time is not otherwise specified at step. Defaults to 0.1.
+        reset_agents_only (bool, optional): When specified the simulation will continue use of the current scenario. Defaults to False.
+        zoo_addrs (Optional[Tuple[str, int]], optional): The (ip:port) values of remote agent workers for externally hosted agents. Defaults to None.
+        external_provider (bool, optional): Creates a special provider `SMARTS.external_provider` that allows for inserting state. Defaults to False.
     """
 
     def __init__(
@@ -115,6 +114,7 @@ class SMARTS(ProviderManager):
         external_provider: bool = False,
     ):
         self._log = logging.getLogger(self.__class__.__name__)
+        self._log.setLevel(level=logging.ERROR)
         self._sim_id = Id.new("smarts")
         self._is_setup = False
         self._is_destroyed = False
@@ -207,14 +207,12 @@ class SMARTS(ProviderManager):
         Dict[str, Dict[str, float]],
     ]:
         """Progress the simulation by a fixed or specified time.
-        Args:
-            agent_actions:
-                Actions that the agents want to perform on their actors.
-            time_delta_since_last_step:
-                Overrides the simulation step length. Progress simulation time by the given amount.
-                Note the time_delta_since_last_step param is in (nominal) seconds.
-        Returns:
-            observations, rewards, dones, infos
+
+        :param agent_actions: Actions that the agents want to perform on their actors.
+        :param time_delta_since_last_step: Overrides the simulation step length.
+            Progress simulation time by the given amount.
+            Note the time_delta_since_last_step param is in (nominal) seconds.
+        :return: observations, rewards, dones, infos
         """
         if not self._is_setup:
             raise SMARTSNotSetupError("Must call reset() or setup() before stepping.")
@@ -380,20 +378,20 @@ class SMARTS(ProviderManager):
         self, scenario: Scenario, start_time: float = 0.0
     ) -> Dict[str, Observation]:
         """Reset the simulation, reinitialize with the specified scenario. Then progress the
-         simulation up to the first time an agent returns an observation, or `start_time` if there
+         simulation up to the first time an agent returns an observation, or ``start_time`` if there
          are no agents in the simulation.
-        Args:
-            scenario(Scenario):
-                The scenario to reset the simulation with.
-            start_time(float):
+
+        :param scenario: The scenario to reset the simulation with.
+        :type scenario: class: Scenario
+        :param start_time:
                 The initial amount of simulation time to skip. This has implications on all time
                 dependent systems. NOTE: SMARTS simulates a step and then updates vehicle control.
-                If you want a vehicle to enter at exactly `0.3` with a step of `0.1` it means the
-                simulation should start at `start_time==0.2`.
-        Returns:
-            Agent observations. This observation is as follows:
-                - If no agents: the initial simulation observation at `start_time`
-                - If agents: the first step of the simulation with an agent observation
+                If you want a vehicle to enter at exactly ``0.3`` with a step of ``0.1`` it means the
+                simulation should start at ``start_time==0.2``.
+        :type start_time: float
+        :return: Agent observations. This observation is as follows:
+            - If no agents: the initial simulation observation at ``start_time``
+            - If agents: the first step of the simulation with an agent observation
         """
         tries = 2
         first_exception = None
@@ -590,8 +588,8 @@ class SMARTS(ProviderManager):
         return None
 
     def _stop_managing_with_providers(self, actor_id: str):
-        provider = self._provider_for_actor(actor_id)
-        if provider:
+        managing_providers = [p for p in self.providers if p.manages_actor(actor_id)]
+        for provider in managing_providers:
             provider.stop_managing(actor_id)
 
     def _remove_vehicle_from_providers(self, vehicle_id: str):
@@ -612,7 +610,7 @@ class SMARTS(ProviderManager):
         interface = self.agent_manager.agent_interface_for_agent_id(agent_id)
         prev_provider = self._provider_for_actor(vehicle.id)
         for provider in self.providers:
-            if interface.action_space in provider.action_spaces:
+            if interface.action in provider.actions:
                 state = VehicleState(
                     actor_id=vehicle.id,
                     source=provider.source_str,
@@ -717,21 +715,22 @@ class SMARTS(ProviderManager):
         self._log.warning(
             f"could not find a provider to assume control of vehicle {state.actor_id} with role={state.role.name} after being relinquished.  removing it."
         )
-        self.provider_removing_actor(provider, state)
+        self.provider_removing_actor(provider, state.actor_id)
         return None
 
-    def provider_removing_actor(self, provider: Provider, actor_state: ActorState):
+    def provider_removing_actor(self, provider: Provider, actor_id: str):
         # Note: for vehicles, pybullet_provider_sync() will also call teardown
         # when it notices a social vehicle has exited the simulation.
-        if isinstance(actor_state, VehicleState):
-            self._teardown_vehicles([actor_state.actor_id])
+        self._teardown_vehicles([actor_id])
 
     def _setup_bullet_client(self, client: bc.BulletClient):
         client.resetSimulation()
         client.configureDebugVisualizer(
             pybullet.COV_ENABLE_GUI, 0  # pylint: disable=no-member
         )
-
+        max_pybullet_freq = config()(
+            "physics", "max_pybullet_freq", default=MAX_PYBULLET_FREQ, cast=int
+        )
         # PyBullet defaults the timestep to 240Hz. Several parameters are tuned with
         # this value in mind. For example the number of solver iterations and the error
         # reduction parameters (erp) for contact, friction and non-contact joints.
@@ -744,11 +743,11 @@ class SMARTS(ProviderManager):
         self._pybullet_period = (
             self._fixed_timestep_sec
             if self._fixed_timestep_sec
-            else 1 / MAX_PYBULLET_FREQ
+            else 1 / max_pybullet_freq
         )
         client.setPhysicsEngineParameter(
             fixedTimeStep=self._pybullet_period,
-            numSubSteps=int(self._pybullet_period * MAX_PYBULLET_FREQ),
+            numSubSteps=int(self._pybullet_period * max_pybullet_freq),
             numSolverIterations=10,
             solverResidualThreshold=0.001,
             # warmStartingFactor=0.99
@@ -853,12 +852,16 @@ class SMARTS(ProviderManager):
             self.destroy()
         except (TypeError, AttributeError) as e:
             # This is a print statement because the logging module may be deleted at program exit.
-            raise SMARTSDestroyedError(
-                "ERROR: A SMARTS instance may have been deleted by gc before a call to destroy."
-                " Please explicitly call `del obj` or `SMARTS.destroy()` to make this error"
-                " go away.",
-                e,
-            )
+            try:
+                exception = SMARTSDestroyedError(
+                    "ERROR: A SMARTS instance may have been deleted by gc before a call to destroy."
+                    " Please explicitly call `del obj` or `SMARTS.destroy()` to make this error"
+                    " go away.",
+                    e,
+                )
+            except (TypeError, KeyboardInterrupt):
+                return
+            raise exception
 
     def _teardown_vehicles(self, vehicle_ids):
         self._vehicle_index.teardown_vehicles_by_vehicle_ids(vehicle_ids)
@@ -918,7 +921,7 @@ class SMARTS(ProviderManager):
     @property
     def dynamic_action_spaces(self) -> Set[ActionSpaceType]:
         """The set of vehicle action spaces that use dynamics (physics)."""
-        return self._agent_physics_provider.action_spaces
+        return self._agent_physics_provider.actions
 
     @property
     def traffic_sim(self) -> Optional[TrafficProvider]:
@@ -977,9 +980,15 @@ class SMARTS(ProviderManager):
 
     def teardown_social_agents(self, agent_ids: Iterable[str]):
         """
+<<<<<<< HEAD
         Teardown agents in the given sequence
         Params:
             agent_ids: Sequence of agent ids
+=======
+        Teardown agents in the given sequence.
+
+        :param agent_ids: Sequence of agent ids
+>>>>>>> upstream/master
         """
         agents_to_teardown = {
             id_
@@ -991,9 +1000,15 @@ class SMARTS(ProviderManager):
     def teardown_social_agents_without_actors(self, agent_ids: Iterable[str]):
         """
         Teardown agents in the given list that have no actors registered as
+<<<<<<< HEAD
         controlled-by or shadowed-by (for each given agent.)
         Params:
             agent_ids: Sequence of agent ids
+=======
+        controlled-by or shadowed-by
+
+        :param agent_ids: Sequence of agent ids
+>>>>>>> upstream/master
         """
         self._check_valid()
         original_agents = set(agent_ids)
@@ -1191,7 +1206,7 @@ class SMARTS(ProviderManager):
 
             interface = self._agent_manager.agent_interface_for_agent_id(agent_id)
             assert interface, f"agent {agent_id} has no interface"
-            if interface.action_space not in provider.action_spaces:
+            if interface.action not in provider.actions:
                 continue
             assert isinstance(provider, AgentsProvider)
 
@@ -1237,7 +1252,7 @@ class SMARTS(ProviderManager):
             # by this point, "stop_managing()" should have been called for the hijacked vehicle on all TrafficProviders
             assert not isinstance(
                 provider, TrafficProvider
-            ) or not provider_state.contains(
+            ) or not provider_state.intersects(
                 agent_vehicle_ids
             ), f"{agent_vehicle_ids} in {provider_state.actors}"
 
@@ -1257,7 +1272,7 @@ class SMARTS(ProviderManager):
         return self._resetting
 
     @property
-    def scenario(self):
+    def scenario(self) -> Scenario:
         """The current simulation scenario."""
         return self._scenario
 
@@ -1279,8 +1294,10 @@ class SMARTS(ProviderManager):
     @fixed_timestep_sec.setter
     def fixed_timestep_sec(self, fixed_timestep_sec: float):
         if not fixed_timestep_sec:
-            # This is the fastest we could possibly run given constraints from pybullet
-            self._rounder = rounder_for_dt(round(1 / MAX_PYBULLET_FREQ, 6))
+            max_pybullet_freq = config()(
+                "physics", "max_pybullet_freq", default=MAX_PYBULLET_FREQ, cast=int
+            )
+            self._rounder = rounder_for_dt(round(1 / max_pybullet_freq, 6))
         else:
             self._rounder = rounder_for_dt(fixed_timestep_sec)
         self._fixed_timestep_sec = fixed_timestep_sec

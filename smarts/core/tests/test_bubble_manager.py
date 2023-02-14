@@ -28,6 +28,7 @@ from helpers.scenario import temp_scenario
 import smarts.sstudio.types as t
 from smarts.core.agent_manager import AgentManager
 from smarts.core.coordinates import Heading, Pose
+from smarts.core.observations import Observation
 from smarts.core.scenario import Scenario
 from smarts.core.sensors import Observation
 from smarts.core.smarts import SMARTS

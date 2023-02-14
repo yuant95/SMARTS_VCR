@@ -265,7 +265,7 @@ class Policy(BasePolicy):
         n_samples = inputs.shape[0]
 
         to_tensor = transforms.ToTensor()
-        imgs = to_tensor(agent_obs["rgb"]).unsqueeze(0).repeat(n_samples, 1, 1, 1)
+        imgs = to_tensor(agent_obs["top_down_rgb"]).unsqueeze(0).repeat(n_samples, 1, 1, 1)
 
         outputs = self.model(imgs, inputs)
         sm = torch.nn.Softmax()

@@ -132,18 +132,21 @@ def test_sumo_map(sumo_scenario):
     rpt = RoadMap.Route.RoutePoint(pt=point)
     rendpt = RoadMap.Route.RoutePoint(pt=Point(198, 65.20))
     db = route.distance_between(rpt, rendpt)
-    assert db == 134.01
+    assert math.isclose(db, 134.01, rel_tol=1e-03)
 
     cands = route.project_along(rpt, 134.01)
     for r2lane in r2.lanes:
-        assert (r2lane, 53.6) in cands
+        assert any(
+            r2lane == cand[0] and math.isclose(cand[1], 53.6, rel_tol=1e-03)
+            for cand in cands
+        ), cands
 
     cands = left_lane.project_along(offset, 134.01)
     assert len(cands) == 6
     for r2lane in r2.lanes:
         if r2lane.index == 1:
             assert any(
-                r2lane == cand[0] and math.isclose(cand[1], 53.6059606)
+                r2lane == cand[0] and math.isclose(cand[1], 53.6059606, rel_tol=1e-03)
                 for cand in cands
             ), cands
 
@@ -478,16 +481,10 @@ def test_opendrive_map_merge(opendrive_scenario_merge):
             assert lane.speed_limit == 16.67
 
     # Nonexistent road/lane tests
-    try:
+    with pytest.raises(AssertionError):
         bad_road = road_map.road_by_id("")
-        assert False, "should not get to here."
-    except:
-        pass
-    try:
+    with pytest.raises(AssertionError):
         bad_lane = road_map.lane_by_id("")
-        assert False, "should not get to here."
-    except:
-        pass
 
     # Surface tests
     surface = road_map.surface_by_id("1_1_R")

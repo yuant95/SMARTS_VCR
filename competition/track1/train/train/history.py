@@ -54,10 +54,10 @@ class HistoryStack(gym.Wrapper):
 
         for agent_id, agent_obs in obs.items():
 
-            self._frames[agent_id].appendleft({"ego": agent_obs["ego"]})
+            self._frames[agent_id].appendleft({"ego": agent_obs["ego_vehicle_state"]})
 
             while len(self._frames[agent_id]) < self._num_stack:
-                self._frames[agent_id].appendleft({"ego": agent_obs["ego"]})
+                self._frames[agent_id].appendleft({"ego": agent_obs["ego_vehicle_state"]})
                 
             frames_seq = tuple(self._frames[agent_id])
             agent_obs["history"] = copy.deepcopy(frames_seq)

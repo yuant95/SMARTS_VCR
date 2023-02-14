@@ -26,7 +26,7 @@ Note:
 
 ## TFRecord Browser
 After running the program the first browser you will see is the `TFRecord Browser` which shows all the TFRecords you loaded in and the commands you can use to browse them further:
-```cmd
+```
 Waymo tfRecords:
   Index  TfRecords
 -------  -------------------------------------------------------------------------------------------------------------------------------------
@@ -81,7 +81,7 @@ Commands you can execute at this level:
 
 ## TFRecord Explorer
 After selecting the TFRecord to explore further, the second browser you will see is the `TFRecord Explorer` which shows the scenario info of all the scenarios in this file and the commands you can use to explore them further:
-```cmd
+```
 TfRecord Explorer
 -----------------------------------------------
 61 scenarios in uncompressed_scenario_training_20s_training_20s.tfrecord-00000-of-01000:
@@ -107,13 +107,9 @@ TfRecord Explorer
      18  1231c0c9a82e4f61           198              309                     198                      2  []            []
      19  69ce11e9b69203e0           198               51                     198                      2  []            []
      20  31e3acf12ee52d0c           198               77                     198                      2  []            []
-```
-.\
-.\
-.
-
-
-```cmd
+      .
+      .
+      .
      58  b1b51cdb69de2d46           199              124                     199                      2  []            []
      59  7e019d5f96e54dbd           198              117                     198                      2  []            []
      60  7f625727984895a6           198              106                     198                      2  []            []
@@ -181,7 +177,6 @@ Commands you can execute at this level:
             traffic_histories=[traffic_history],
         ),
         output_dir=str(Path(__file__).parent),
-        overwrite=True,
     )
     ```
     And `<SCENARIO_ID>/waymo.yaml` for generating history dataset and imitation learning aspects of `SMARTS`:
@@ -204,7 +199,7 @@ Commands you can execute at this level:
 
 ## Scenario Explorer
 After selecting the scenario to explore further, the third browser you will see is the `Scenario Explorer` which shows the total number of different map features and their IDs, and the total number of different track objects and their IDs in the scenario:
-```cmd
+```
 Scenario Explorer
 -----------------------------------------------
 Scenario c84cde79e51b087c Map Features:

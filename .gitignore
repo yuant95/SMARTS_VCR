@@ -119,6 +119,7 @@ shifted_map-AUTOGEN.net.xml
 *.pkl
 *.shf
 *.tfrecord*
+build.db
 
 # Manually generated sumo route files
 !zoo/evaluation/scenarios/**/traffic/*.rou.xml
@@ -146,9 +147,6 @@ smarts-project.offline-datasets/
 # Optimization Engine build directory
 OpEn_build/
 
-# Ignore generated ULTRA tasks
-ultra/ultra/scenarios/task*/*/
-
 # Singularity
 *.sif
 
@@ -162,3 +160,5 @@ collected_observations/
 .pytype
 
 smarts-project.offline-datasets/
+# Benchmark
+**/diagnostic/reports/*

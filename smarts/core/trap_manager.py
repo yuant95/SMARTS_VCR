@@ -21,13 +21,14 @@ import logging
 import math
 import random as rand
 from collections import defaultdict
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Dict, List, Sequence, Set
 
 from shapely.geometry import Polygon
 
 from smarts.core.coordinates import Point as MapPoint
 from smarts.core.plan import Mission, Plan, Start, default_entry_tactic
+from smarts.core.utils.file import replace
 from smarts.core.utils.math import clip, squared_dist
 from smarts.core.vehicle import Vehicle
 from smarts.sstudio.types import MapZone, PositionalZone, TrapEntryTactic
@@ -100,18 +101,18 @@ class TrapManager:
         reject_expired: bool = False,
     ) -> bool:
         """Add a new trap to capture an actor for the given agent.
-        Args:
-            agent_id(str):
-                The agent to associate to this trap.
-            mission(Mission):
-                The mission to assign to the agent and vehicle.
-            road_map(RoadMap):
-                The road map to provide information to about the map.
-            sim_time(float):
-                The current simulator time.
-            reject_expired(bool):
-                If traps should be ignored if their patience would already be
-                expired on creation.
+
+        :param agent_id: The agent to associate to this trap.
+        :type agent_id: str
+        :param mission: The mission to assign to the agent and vehicle.
+        :type mission: class: Mission
+        :param road_map: The road map to provide information to about the map.
+        :type road_map: class: RoadMap
+        :param sim_time: The current simulator time.
+        :type sim_time: float
+        :param reject_expired: If traps should be ignored if their patience would already be
+            expired on creation
+        :type reject_expired: bool
         """
         if mission is None:
             mission = Mission.random_endless_mission(road_map)
@@ -122,10 +123,10 @@ class TrapManager:
         if not isinstance(mission.entry_tactic, TrapEntryTactic):
             return False
 
+        entry_tactic = mission.entry_tactic
+        assert isinstance(entry_tactic, TrapEntryTactic)
         # Do not add trap if simulation time is specified and patience already expired
-        patience_expired = (
-            mission.start_time + mission.entry_tactic.wait_to_hijack_limit_s
-        )
+        patience_expired = mission.start_time + entry_tactic.wait_to_hijack_limit_s
         if reject_expired and patience_expired < sim_time:
             self._log.warning(
                 f"Trap skipped for `{agent_id}` scheduled to start between "

@@ -19,50 +19,49 @@
 # THE SOFTWARE.
 import logging
 import warnings
+from pathlib import Path
 
-import numpy as np
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 
 import smarts
+from envision import types as envision_types
 from envision.client import Client as Envision
 from smarts.core.local_traffic_provider import LocalTrafficProvider
 from smarts.core.scenario import Scenario
 from smarts.core.smarts import SMARTS
 from smarts.core.sumo_traffic_simulation import SumoTrafficSimulation
-from smarts.core.utils.logging import timeit
 
 
 class RLlibHiWayEnv(MultiAgentEnv):
-    """See MultiAgentEnv
+    """This environment serves as a format to run multiple environments in
+    parallel. This environment requires a specific configuration.
 
-    The purpose of this environment is as a format to run multiple environments in parallel.
+    Args:
+        config (Dict[str,Any]): An environment configuration dictionary containing the following key value pairs.
 
-    This environment will want a specific configuration:
-        config: a dictionary with the environment configuration
-            agent_specs:
-                a dictionary of agent_ids to agents that run in the environment (required)
-            scenarios:
-                a list of directories of the scenarios that will be run (required)
-            sim_name:
-                a string that gives this simulation a name (default None)
-            envision_record_data_replay_path:
-                specify envision's data replay output directory (default None)
-            envision_endpoint:
-                used to specify envision's uri (default None)
-            headless:
-                true|false envision disabled (default True)
-            num_external_sumo_clients:
-                the number of SUMO clients beyond SMARTS (default 0)
-            seed:
-                the seed for random number generation (default 42)
-            sumo_auto_start:
-                true|false sumo will start automatically (default False)
-            sumo_headless:
-                true|false for sumo|sumo-gui (default False)
-            sumo_port:
-                used to specify a specific sumo port (default None)
-            fixed_timestep_sec:
-                the step length for all components of the simulation (default 0.1)
+            agent_specs: Dictionary mapping agent_ids to agent specs. Required.
+
+            scenarios: List of scenario directories that will be run. Required.
+
+            sim_name: A string to name this simulation. Defaults to None.
+
+            envision_record_data_replay_path: Specifies Envision's data replay output directory. Defaults to None.
+
+            envision_endpoint: Specifies Envision's uri. Defaults to None.
+
+            headless: True|False envision disabled|enabled. Defaults to True.
+
+            num_external_sumo_clients: Number of SUMO clients beyond SMARTS. Defaults to 0.
+
+            seed: Random number generation seed. Defaults to 42.
+
+            sumo_auto_start: True|False sumo will start automatically. Defaults to False.
+
+            sumo_headless: True|False for sumo|sumo-gui. Defaults to False.
+
+            sumo_port: Specifies sumo port. Defaults to None.
+
+            fixed_timestep_sec: Step length for all components of the simulation. Defaults to 0.1 .
     """
 
     def __init__(self, config):
@@ -80,13 +79,16 @@ class RLlibHiWayEnv(MultiAgentEnv):
         smarts.core.seed(seed + c)
 
         self._agent_specs = config["agent_specs"]
+        self._scenarios = [
+            str(Path(scenario).resolve()) for scenario in config["scenarios"]
+        ]
         self._scenarios_iterator = Scenario.scenario_variations(
-            config["scenarios"],
+            self._scenarios,
             list(self._agent_specs.keys()),
         )
 
         self._sim_name = config.get("sim_name", None)
-        self._headless = config.get("headless", False)
+        self._headless = config.get("headless", True)
         self._num_external_sumo_clients = config.get("num_external_sumo_clients", 0)
         self._sumo_headless = config.get("sumo_headless", True)
         self._sumo_port = config.get("sumo_port")
@@ -209,6 +211,17 @@ class RLlibHiWayEnv(MultiAgentEnv):
                 output_dir=self._envision_record_data_replay_path,
                 headless=self._headless,
             )
+            preamble = envision_types.Preamble(scenarios=self._scenarios)
+            envision.send(preamble)
+
+        sumo_traffic = SumoTrafficSimulation(
+            headless=self._sumo_headless,
+            time_resolution=self._fixed_timestep_sec,
+            num_external_sumo_clients=self._num_external_sumo_clients,
+            sumo_port=self._sumo_port,
+            auto_start=self._sumo_auto_start,
+        )
+        smarts_traffic = LocalTrafficProvider()
 
         sumo_traffic = SumoTrafficSimulation(
             headless=self._sumo_headless,

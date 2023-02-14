@@ -33,8 +33,7 @@ from smarts.core.utils.math import (
 )
 
 
-@dataclass(frozen=True)
-class Dimensions:
+class Dimensions(NamedTuple):
     """Representation of the size of a 3-dimensional form."""
 
     length: float
@@ -143,7 +142,11 @@ class Point(NamedTuple):
 class RefLinePoint(NamedTuple):
     """A reference line coordinate.
     See the Reference Line coordinate system in OpenDRIVE here:
+<<<<<<< HEAD
        https://www.asam.net/index.php?eID=dumpFile&t=f&f=4089&token=deea5d707e2d0edeeb4fccd544a973de4bc46a09#_coordinate_systems
+=======
+    `https://www.asam.net/index.php?eID=dumpFile&t=f&f=4089&token=deea5d707e2d0edeeb4fccd544a973de4bc46a09#_coordinate_systems`
+>>>>>>> upstream/master
     Also known as the Frenet coordinate system.
     """
 
@@ -291,6 +294,7 @@ class Pose:
     """A pair of position and orientation values."""
 
     position: np.ndarray  # [x, y, z]
+    """Center of vehicle."""
     orientation: np.ndarray  # [a, b, c, d] -> a + bi + cj + dk = 0
     heading_: Optional[Heading] = None  # cached heading to avoid recomputing
 
@@ -335,8 +339,8 @@ class Pose:
         return Point(*self.position)
 
     @classmethod
-    def from_front_bumper(cls, front_bumper_position, heading, length):
-        """Convert from front bumper location
+    def from_front_bumper(cls, front_bumper_position, heading, length) -> "Pose":
+        """Convert from front bumper location to a Pose with center of vehicle.
 
         Args:
             front_bumper_position: The (x, y) position of the centre front of the front bumper

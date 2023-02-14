@@ -472,7 +472,7 @@ class Policy(BasePolicy):
 
         inputs = self.get_model_input(agent_obs, actions, sampled_waypoints)
         n_samples = inputs.shape[0]
-        imgs = torch.permute(torch.from_numpy(agent_obs["rgb"]), (2, 0, 1)).unsqueeze(0).repeat(n_samples, 1, 1, 1)
+        imgs = torch.permute(torch.from_numpy(agent_obs["top_down_rgb"]), (2, 0, 1)).unsqueeze(0).repeat(n_samples, 1, 1, 1)
     
         with torch.no_grad():
             outputs = self.model(imgs, inputs.float())

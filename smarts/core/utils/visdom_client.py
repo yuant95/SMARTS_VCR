@@ -31,6 +31,12 @@ except ImportError:
     raise ImportError("Visdom is required for visualizations.")
 
 
+class QueueDone:
+    """A termination signal for the queue."""
+
+    pass
+
+
 class VisdomClient:
     """A client for handling connection to a Visdom server."""
 
@@ -49,7 +55,9 @@ class VisdomClient:
 
     def teardown(self):
         """Clean up unmanaged resources."""
-        pass
+        if not self._visdom_obs_queue:
+            return
+        self._visdom_obs_queue.put(QueueDone())
 
     def _build_visdom_watcher_queue(self):
         # Set queue size to 1 so that we don't hang on too old observations
@@ -64,11 +72,16 @@ class VisdomClient:
         queue_watcher.start()
         return obs_queue
 
-    def _watcher_loop(self, obs_queue):
+    def _watcher_loop(self, obs_queue: multiprocessing.Queue):
         vis = visdom.Visdom(port=self._port, server=self._hostname)
 
         while True:
-            obs = obs_queue.get()
+            try:
+                obs = obs_queue.get()
+            except (BrokenPipeError, ValueError, KeyboardInterrupt, EOFError, OSError):
+                return
+            if isinstance(obs, QueueDone):
+                return
 
             for key, images in self._vis_sim_obs(obs).items():
                 title = json.dumps({"Type:": key})
@@ -100,9 +113,9 @@ class VisdomClient:
                 image = (image.astype(np.float32) / 100) * 255
                 vis_images[f"{agent_id}-OGM"].append(image)
 
-            rgb = getattr(agent_obs, "top_down_rgb", None)
-            if rgb is not None:
-                image = rgb.data
+            top_down_rgb = getattr(agent_obs, "top_down_rgb", None)
+            if top_down_rgb is not None:
+                image = top_down_rgb.data
                 image = image.transpose(2, 0, 1)
                 image = image.astype(np.float32)
                 vis_images[f"{agent_id}-Top-Down RGB"].append(image)

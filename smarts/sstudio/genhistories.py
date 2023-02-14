@@ -36,6 +36,7 @@ from smarts.core.signal_provider import SignalLightState
 from smarts.core.utils.file import read_tfrecord_file
 from smarts.core.utils.math import (
     circular_mean,
+    constrain_angle,
     min_angles_difference_signed,
     vec_to_radians,
     constrain_angle,
@@ -992,7 +993,6 @@ class Waymo(_TrajectoryDataset):
 def import_dataset(
     dataset_spec: types.TrafficHistoryDataset,
     output_path: str,
-    overwrite: bool,
     map_bbox: Optional[BoundingBox] = None,
 ):
     """called to pre-process (import) a TrafficHistoryDataset for use by SMARTS"""
@@ -1001,9 +1001,6 @@ def import_dataset(
         return
     output = os.path.join(output_path, f"{dataset_spec.name}.shf")
     if os.path.exists(output):
-        if not overwrite:
-            print(f"file already exists at {output}.  skipping...")
-            return
         os.remove(output)
     source = dataset_spec.source_type
     dataset_dict = dataset_spec.__dict__

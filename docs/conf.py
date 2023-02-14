@@ -33,20 +33,41 @@ release = VERSION
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx_rtd_theme",  # Read The Docs theme
-    "sphinx.ext.autodoc",  # Automatically extract docs from docstrings
-    "sphinx.ext.coverage",  # make coverage generates documentation coverage reports
+    "myst_parser",  # support Markdown-based documentation
+    "sphinx.ext.autodoc",  # automatically extract docs from docstrings
+    "sphinx.ext.coverage",  # to generate documentation coverage reports
+    "sphinx.ext.extlinks",  # shorten external links
     "sphinx.ext.napoleon",  # support Numpy and Google doc style
+    "sphinx.ext.todo",  # support for todo items
     "sphinx.ext.viewcode",  # link to sourcecode from docs
-    "sphinx.ext.graphviz",  # TODO: should we include this?
+    "sphinx_rtd_theme",  # Read The Docs theme
+    "sphinx_click",  # extract documentation from a `click` application
     "sphinxcontrib.apidoc",
 ]
 
-# configuring automated generation of api documentation
+extlinks = {
+    "examples": (
+        "https://github.com/huawei-noah/SMARTS/blob/master/examples/%s",
+        "%s",
+    ),
+    "scenarios": (
+        "https://github.com/huawei-noah/SMARTS/blob/master/scenarios/%s",
+        "%s",
+    ),
+}
+
+# Configuring automated generation of api documentation.
 # See: https://github.com/sphinx-contrib/apidoc
 apidoc_module_dir = ".."
-apidoc_excluded_paths = ["scenarios", "setup.py"]
 apidoc_module_first = True
+apidoc_excluded_paths = [
+    "cli",
+    "examples",
+    "setup.py",
+    "scenarios",
+    "smarts/ros",
+    "zoo/policies/interaction_aware_motion_prediction",
+]
 apidoc_extra_args = [
     "--force",
     "--separate",
@@ -55,6 +76,25 @@ apidoc_extra_args = [
     "--maxdepth=2",
     "--templatedir=_templates/apidoc",
 ]
+autodoc_mock_imports = [
+    "cpuinfo",
+    "cv2",
+    "gymnasium",
+    "lxml",
+    "mdutils",
+    "moviepy",
+    "opendrive2lanelet",
+    "pathos",
+    "PIL",
+    "pynput",
+    "ray",
+    "tabulate",
+    "tools",
+    "torch",
+    "waymo_open_dataset",
+]
+
+todo_include_todos = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -72,7 +112,6 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 #
 # html_theme = 'alabaster'
 html_theme = "sphinx_rtd_theme"
-
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

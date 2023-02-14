@@ -27,8 +27,8 @@ class SaveObs(gym.ObservationWrapper):
             obs_data.update(
                 {
                     agent_id: {
-                        "pos": copy.deepcopy(agent_obs["ego"]["pos"]),
-                        "heading": copy.deepcopy(agent_obs["ego"]["heading"]),
+                        "pos": copy.deepcopy(agent_obs["ego_vehicle_state"]["pos"]),
+                        "heading": copy.deepcopy(agent_obs["ego_vehicle_state"]["heading"]),
                     }
                 }
             )
@@ -53,8 +53,8 @@ class FilterObs(gym.ObservationWrapper):
                         "rgb": gym.spaces.Box(
                             low=0,
                             high=255,
-                            shape=(agent_obs_space["rgb"].shape[-1],)
-                            + agent_obs_space["rgb"].shape[:-1],
+                            shape=(agent_obs_space["top_down_rgb"].shape[-1],)
+                            + agent_obs_space["top_down_rgb"].shape[:-1],
                             dtype=np.uint8,
                         ),
                         "goal_distance": gym.spaces.Box(
@@ -113,7 +113,7 @@ class FilterObs(gym.ObservationWrapper):
                 [
                     [
                         np.linalg.norm(
-                            agent_obs["mission"]["goal_pos"] - agent_obs["ego"]["pos"]
+                            agent_obs["mission"]["goal_pos"] - agent_obs["ego_vehicle_state"]["pos"]
                         )
                     ]
                 ],
@@ -123,8 +123,8 @@ class FilterObs(gym.ObservationWrapper):
             # Ego's heading with respect to the map's coordinate system.
             # Note: All angles returned by smarts is with respect to the map's coordinate system.
             #       On the map, angle is zero at positive y axis, and increases anti-clockwise.
-            ego_heading = (agent_obs["ego"]["heading"] + np.pi) % (2 * np.pi) - np.pi
-            ego_pos = agent_obs["ego"]["pos"]
+            ego_heading = (agent_obs["ego_vehicle_state"]["heading"] + np.pi) % (2 * np.pi) - np.pi
+            ego_pos = agent_obs["ego_vehicle_state"]["pos"]
 
             # Goal's angle with respect to the ego's position.
             # Note: In np.angle(), angle is zero at positive x axis, and increases anti-clockwise.
@@ -140,7 +140,7 @@ class FilterObs(gym.ObservationWrapper):
             goal_heading = np.array([[goal_heading]], dtype=np.float32)
 
             # Get rgb image, remove road, and replace other egos (if any) as background vehicles
-            rgb = agent_obs["rgb"]
+            rgb = agent_obs["top_down_rgb"]
             h, w, _ = rgb.shape
             rgb_noroad = replace_color(rgb=rgb, old_color=self._road_color, new_color=np.zeros((3,)))
             rgb_ego = replace_color(rgb=rgb_noroad, old_color=self._ego_color, new_color=self._traffic_color, mask=self._rgb_mask[agent_id])
