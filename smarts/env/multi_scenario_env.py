@@ -258,6 +258,16 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
+    elif scenario == "1_to_2lane_left_turn_t_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_2lane_left_turn_t_itra"
+            ),
+            "num_agent": 1,
+        }
     elif scenario == "3lane_cut_in":
         return {
             "scenario": str(
