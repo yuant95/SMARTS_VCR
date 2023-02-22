@@ -22,7 +22,7 @@ class invertedAiBoidAgent(Agent):
         
     def act(self, obs):
         if len(obs) > 0 :
-            agent_states, agent_attributes = self.get_iai_agents(obs)
+            agent_ids, agent_states, agent_attributes = self.get_iai_agents(obs)
             # This is hack to provide initial recurrent state to ITRA
             if len(self.recurrent_states) == 0:
                 recurrent_states = [RecurrentState() for _ in range(len(agent_states))]
@@ -31,7 +31,7 @@ class invertedAiBoidAgent(Agent):
 
             else:
                 recurrent_states = []
-                for index, agent_id in enumerate(obs):
+                for index, agent_id in enumerate(agent_ids):
                     if agent_id in self.recurrent_states:
                         recurrent_states.append(self.recurrent_states[agent_id])
                     else:
@@ -68,14 +68,18 @@ class invertedAiBoidAgent(Agent):
             for index, agent_id in enumerate(obs):
                 self.recurrent_states[agent_id] = res.recurrent_states[index]
             
-            return {vehicle_id: self.get_action(res.agent_states[index]) for index, vehicle_id in enumerate(obs)}
+            actions = {vehicle_id: self.get_action(res.agent_states[agent_ids.index(vehicle_id)]) for index, vehicle_id in enumerate(obs)}
+            return actions
         else:
             return {}
             
     def get_iai_agents(self, obs):
         agent_states = []
         agent_attributes = []
+        agent_ids = []
         for vehicle_id, obs_ in obs.items():
+            agent_ids.append(vehicle_id)
+
             ego_center = iai.common.Point(x=float(obs_.ego_vehicle_state.position[0]-self.offset[0]), y=float(obs_.ego_vehicle_state.position[1]-self.offset[1]))
             ego_state = iai.common.AgentState(center=ego_center, orientation=float(obs_.ego_vehicle_state.heading+np.pi/2.0), speed=float(obs_.ego_vehicle_state.speed))
             agent_states.append(ego_state)
@@ -87,7 +91,28 @@ class invertedAiBoidAgent(Agent):
             
             agent_attributes.append(ego_attri)
 
-        return agent_states, agent_attributes
+        for vehicle_id, obs_ in obs.items():
+            if (obs_.neighborhood_vehicle_states):
+                neighbors = obs_.neighborhood_vehicle_states
+                for i in range(len(neighbors)):
+                    if neighbors[i].id not in agent_ids:
+                        agent_ids.append(neighbors[i].id)
+                        
+                        center = iai.common.Point(x=float(neighbors[i].position[0]-self.offset[0]), y=float(neighbors[i].position[1]-self.offset[1]))
+                        orientation = float(neighbors[i].heading+np.pi/2.0)
+                        speed = float(neighbors[i].speed)
+
+                        length = float(neighbors[i].bounding_box.length)
+                        width = float(neighbors[i].bounding_box.width)
+                        rear_axis_offset = length * 0.4
+
+                        state = iai.common.AgentState(center=center, orientation=orientation, speed=speed)
+                        attri = iai.common.AgentAttributes(length=length, width=width, rear_axis_offset=rear_axis_offset)
+                
+                        agent_states.append(state)
+                        agent_attributes.append(attri)
+
+        return agent_ids, agent_states, agent_attributes
 
     def get_action(self, agent_state):
 

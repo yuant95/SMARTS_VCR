@@ -99,7 +99,7 @@ bubbles = [
     t.Bubble(
         zone=t.PositionalZone(pos=(50, 40), size=(15, 20)),
         margin=2,
-        actor=invertedai_agent_actor,
+        actor=invertedai_boid_agent,
     ),
 ]
 
