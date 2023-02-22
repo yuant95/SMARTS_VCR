@@ -201,11 +201,11 @@ class EventConfiguration:
 class DoneCriteria:
     """Toggleable conditions on which cause removal of an agent from the current episode."""
 
-    collision: bool = True
+    collision: bool = False
     """End the episode when the agent collides with another vehicle."""
-    off_road: bool = True
+    off_road: bool = False
     """End the episode when the agent drives off the road."""
-    off_route: bool = True
+    off_route: bool = False
     """End the episode when the agent drives off the specified mission route."""
     on_shoulder: bool = False
     """End the episode when the agent drives on the road shoulder."""

@@ -17,7 +17,7 @@ class invertedAiBoidAgent(Agent):
     def __init__(self):
         self.location = ITRA_MAP_LOCATION
         self.recurrent_states = {}
-        self.offset = [0, 0]
+        self.offset = [50, 20]
         super().__init__()
         
     def act(self, obs):
@@ -105,27 +105,20 @@ class invertedAiBoidAgent(Agent):
 class invertedAiAgent(Agent):
     def __init__(self):
         self.location = ITRA_MAP_LOCATION
-        self.recurrent_states = []
-        self.offset = [105, 0]
+        self.recurrent_states = {}
+        self.offset = [50, 20]
         super().__init__()
 
         
     def act(self, obs):
-        agent_states, agent_attributes = self.get_iai_agents(obs)
+        agent_ids, agent_states, agent_attributes, agent_recurrent_states = self.get_iai_agents(obs)
         # This is hack to provide initial recurrent state to ITRA
-        if len(self.recurrent_states) == 0:
-            recurrent_states = [RecurrentState() for _ in range(len(agent_states))]
-            for recurrent, st in zip(recurrent_states, agent_states):
-                recurrent.packed[-4:] = [st.center.x, st.center.y, st.orientation, st.speed]
-
-        else:
-            recurrent_states = self.recurrent_states
 
         res = iai.api.drive(
             location=self.location, 
             agent_states=agent_states, 
             agent_attributes=agent_attributes, 
-            recurrent_states=recurrent_states,
+            recurrent_states=agent_recurrent_states,
             get_birdview=False)
         
         # Code for export birdview for debugging
@@ -134,11 +127,16 @@ class invertedAiAgent(Agent):
         # fig, ax = plt.subplots(constrained_layout=True, figsize=(5, 5))
         # ax.set_axis_off(), ax.imshow(birdview)
         
-        self.recurrent_states = res.recurrent_states
+        for index, id in enumerate(agent_ids):
+            self.recurrent_states[id] = res.recurrent_states[index]
 
         return self.get_action(res)
 
     def get_iai_agents(self, obs):
+        agent_ids  = []
+        agent_recurrent_states = []
+
+        agent_ids.append(obs.ego_vehicle_state.id)
         ego_center = iai.common.Point(x=float(obs.ego_vehicle_state.position[0]-self.offset[0]), y=float(obs.ego_vehicle_state.position[1]-self.offset[1]))
         ego_state = iai.common.AgentState(center=ego_center, orientation=float(obs.ego_vehicle_state.heading+np.pi/2.0), speed=float(obs.ego_vehicle_state.speed))
         agent_states = [ego_state]
@@ -150,11 +148,12 @@ class invertedAiAgent(Agent):
         
         agent_attributes = [ego_attri]
 
-        
         if (obs.neighborhood_vehicle_states):
             neighbors = obs.neighborhood_vehicle_states
             for i in range(len(neighbors)):
-                center = iai.common.Point(float(neighbors[i].position[0]-self.offset[0]), float(neighbors[i].position[1]-self.offset[1]))
+                agent_ids.append(neighbors[i].id)
+                
+                center = iai.common.Point(x=float(neighbors[i].position[0]-self.offset[0]), y=float(neighbors[i].position[1]-self.offset[1]))
                 orientation = float(neighbors[i].heading+np.pi/2.0)
                 speed = float(neighbors[i].speed)
 
@@ -168,7 +167,17 @@ class invertedAiAgent(Agent):
                 agent_states.append(state)
                 agent_attributes.append(attri)
 
-        return agent_states, agent_attributes
+        # finally construct the recurrent states
+        for index, id in enumerate(agent_ids):
+            if id in self.recurrent_states:
+                agent_recurrent_states.append(self.recurrent_states[id])
+            else:
+                tmp = RecurrentState()
+                tmp.packed[-4:] = [agent_states[index].center.x, agent_states[index].center.y, agent_states[index].orientation, agent_states[index].speed]
+                agent_recurrent_states.append(tmp)
+
+
+        return agent_ids, agent_states, agent_attributes, agent_recurrent_states
 
     def get_action(self, res):
 
@@ -213,7 +222,7 @@ register(
 register(
     locator="inverted-agent-v0",
     entry_point=lambda **kwargs: AgentSpec(
-        interface=AgentInterface(waypoints=True, action=ActionSpaceType.TargetPose),
+        interface=AgentInterface(neighborhood_vehicles=True,waypoints=True, action=ActionSpaceType.TargetPose),
         agent_builder=invertedAiAgent,
     ),
 )
@@ -224,6 +233,7 @@ register(
         interface=AgentInterface(
             action=ActionSpaceType.TargetPose,
             waypoints=True,
+            neighborhood_vehicles=True,
         ),
         agent_builder=invertedAiBoidAgent,
     ),

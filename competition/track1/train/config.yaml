@@ -17,6 +17,7 @@ smarts:
     # - "3lane_cruise_single_agent_itra_batch"
     # - "3lane_cruise_single_agent_social"
     - "1_to_2lane_left_turn_t_itra"
+    # - "1_to_2lane_left_turn_t_social"
 
 
   # Training
