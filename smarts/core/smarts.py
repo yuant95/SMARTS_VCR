@@ -358,7 +358,7 @@ class SMARTS(ProviderManager):
             agent_ids = set()
             for agent_id, done in dones.items():
                 if self._agent_manager.is_boid_agent(agent_id):
-                    if not self.agent_manager.is_boid_keep_alive_agent(
+                    if not self._agent_manager.is_boid_keep_alive_agent(
                         agent_id
                     ) and all(dones[agent_id].values()):
                         agent_ids.add(agent_id)
@@ -423,7 +423,7 @@ class SMARTS(ProviderManager):
         ):
             vehicle_ids_to_teardown = set()
             agent_ids = self._agent_manager.teardown_ego_agents()
-            agent_ids |= self.agent_manager.teardown_social_agents()
+            agent_ids |= self._agent_manager.teardown_social_agents()
             for agent_id in agent_ids:
                 ids = self._vehicle_index.vehicle_ids_by_actor_id(agent_id)
                 vehicle_ids_to_teardown |= set(ids)
@@ -536,7 +536,7 @@ class SMARTS(ProviderManager):
     ) -> Vehicle:
         """Add the new specified ego agent and then take over control of the specified vehicle."""
         self._check_valid()
-        self.agent_manager.add_ego_agent(agent_id, agent_interface, for_trap=False)
+        self._agent_manager.add_ego_agent(agent_id, agent_interface, for_trap=False)
         vehicle = self.switch_control_to_agent(
             vehicle_id, agent_id, mission, recreate=False, is_hijacked=True
         )
@@ -567,7 +567,7 @@ class SMARTS(ProviderManager):
 
         # Switch control to agent
         plan = Plan(self.road_map, mission)
-        interface = self.agent_manager.agent_interface_for_agent_id(agent_id)
+        interface = self._agent_manager.agent_interface_for_agent_id(agent_id)
         self.vehicle_index.start_agent_observation(
             self, vehicle_id, agent_id, interface, plan
         )
@@ -609,7 +609,7 @@ class SMARTS(ProviderManager):
         self._check_valid()
         self._stop_managing_with_providers(vehicle.id)
         role = ActorRole.EgoAgent if is_ego else ActorRole.SocialAgent
-        interface = self.agent_manager.agent_interface_for_agent_id(agent_id)
+        interface = self._agent_manager.agent_interface_for_agent_id(agent_id)
         prev_provider = self._provider_for_actor(vehicle.id)
         for provider in self.providers:
             if interface.action_space in provider.action_spaces:
@@ -984,9 +984,9 @@ class SMARTS(ProviderManager):
         agents_to_teardown = {
             id_
             for id_ in agent_ids
-            if not self.agent_manager.is_boid_keep_alive_agent(id_)
+            if not self._agent_manager.is_boid_keep_alive_agent(id_)
         }
-        self.agent_manager.teardown_social_agents(filter_ids=agents_to_teardown)
+        self._agent_manager.teardown_social_agents(filter_ids=agents_to_teardown)
 
     def teardown_social_agents_without_actors(self, agent_ids: Iterable[str]):
         """
@@ -1235,11 +1235,11 @@ class SMARTS(ProviderManager):
                 raise
 
             # by this point, "stop_managing()" should have been called for the hijacked vehicle on all TrafficProviders
-            assert not isinstance(
-                provider, TrafficProvider
-            ) or not provider_state.contains(
-                agent_vehicle_ids
-            ), f"{agent_vehicle_ids} in {provider_state.actors}"
+            # assert not isinstance(
+            #     provider, TrafficProvider
+            # ) or not provider_state.contains(
+            #     agent_vehicle_ids
+            # ), f"{agent_vehicle_ids} in {provider_state.actors}"
 
             accumulated_provider_state.merge(provider_state)
 

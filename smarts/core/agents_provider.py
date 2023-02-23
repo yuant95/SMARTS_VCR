@@ -132,7 +132,7 @@ class AgentsProvider(Provider):
             orphaned_social_agents = (
                 self._agent_manager.social_agent_ids & agents_without_actors
             )
-            self._agent_manager.teardown_social_agents(orphaned_social_agents)
+            # self._agent_manager.teardown_social_agents(orphaned_social_agents)
 
         agent_manager = self._agent_manager
         vehicle_index = self._vehicle_index
