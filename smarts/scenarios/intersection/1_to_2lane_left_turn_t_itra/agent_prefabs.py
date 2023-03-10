@@ -9,7 +9,10 @@ from smarts.zoo.registry import register
 import invertedai as iai
 from invertedai.common import RecurrentState
 
-ITRA_MAP_LOCATION = "smarts:intersection_1_to_2lane_left_turn_t"
+import time
+
+
+ITRA_MAP_LOCATION = "smarts:intersection_1_to_2lane_left_turn_t_extended"
 
 iai.add_apikey("JVzQDGMjeI7nMdZ0Ydl9G6yRD9NdxmPE1QCr0UGe")
 
@@ -17,7 +20,8 @@ class invertedAiBoidAgent(Agent):
     def __init__(self):
         self.location = ITRA_MAP_LOCATION
         self.recurrent_states = {}
-        self.offset = [50, 20]
+        self.offset = [50, -60]
+        # self.step_num = 0
         super().__init__()
         
     def act(self, obs):
@@ -47,7 +51,7 @@ class invertedAiBoidAgent(Agent):
                         agent_states=agent_states, 
                         agent_attributes=agent_attributes, 
                         recurrent_states=recurrent_states,
-                        get_birdview=False)
+                        get_birdview=True)
                 except Exception as e:
                     if i < tries - 1: # i is zero indexed
                         print("Exception raised from iai.api.drive： {}".format(str(e)))
@@ -61,9 +65,19 @@ class invertedAiBoidAgent(Agent):
             
             # Code for export birdview for debugging
 
-            # birdview = res.birdview.decode()
+            image = res.birdview.decode()
+            folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
+            time_stamp = int(time.time())
+            from moviepy.editor import ImageClip
+            with ImageClip(image) as image_clip:
+                image_clip.save_frame(
+                    f"{folder}/video_{time_stamp}.jpeg"
+                )
+            
             # fig, ax = plt.subplots(constrained_layout=True, figsize=(5, 5))
             # ax.set_axis_off(), ax.imshow(birdview)
+
+
             
             for index, agent_id in enumerate(obs):
                 self.recurrent_states[agent_id] = res.recurrent_states[index]

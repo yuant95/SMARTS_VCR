@@ -97,7 +97,7 @@ bubbles = [
     #     keep_alive=True, 
     # ),
     t.Bubble(
-        zone=t.PositionalZone(pos=(50, 40), size=(60, 30)),
+        zone=t.PositionalZone(pos=(50, 40), size=(120, 120)),
         margin=5,
         actor=invertedai_boid_agent,
     ),
