@@ -74,28 +74,30 @@ class CustomCallback(BaseCallback):
         """
         # Evaluate the model
         # policy = lambda obs_: self.model.predict(obs_, deterministic=True)[0]
-        # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env)
+        # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env, STATIC_ARGS['tracks_folder'])
+        episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+            self.model,
+            self.eval_env,
+            n_eval_episodes=self.n_eval_episodes,
+            render=self.render,
+            deterministic=self.deterministic,
+            return_episode_rewards=True,
+        )
+    
+        mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
+        mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
 
-        # log to wandb
-
-        # episode_rewards, episode_lengths, episode_infos = evaluate_policy(
-        #         self.model,
-        #         self.eval_env,
-        #         n_eval_episodes=self.n_eval_episodes,
-        #         render=self.render,
-        #         deterministic=self.deterministic,
-        #         return_episode_rewards=True,
-        #     )
-        
-        # mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
-        # mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
-        # self.eval_env.reset()
-
-        # wandb.log(dict({'det_avg_reward':mean_reward,
+        # wandb.log({'det_avg_reward':mean_reward,
         #            'det_avg_ep_len':mean_ep_length,
+        #         #    'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
+        #         #    'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer]),
         #            'time_steps': self.num_timesteps,
-        #            'updates': self.model._n_updates}, **episode_infos))
-        return None
+        #            'updates': self.model._n_updates})
+        wandb.log(dict({'det_avg_reward':mean_reward,
+            'det_avg_ep_len':mean_ep_length,
+            'time_steps': self.num_timesteps,
+            'updates': self.model._n_updates}, **episode_infos))
+
 
     def _on_rollout_start(self) -> None:
         """
@@ -118,6 +120,10 @@ class CustomCallback(BaseCallback):
         when the event is triggered.
         :return: (bool) If the callback returns False, training is aborted early.
         """
+        if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
+                wandb.log({'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
+                       'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer])})
+                       
         if self.n_calls % self.save_freq == 0:
             path = os.path.join(self.checkpoint_save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.zip")
             self.model.save(path)
@@ -153,7 +159,6 @@ class CustomCallback(BaseCallback):
                 'time_steps': self.num_timesteps,
                 'updates': self.model._n_updates}, **episode_infos))
             
-
             if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
                 wandb.log({'stoch_avg_return': safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]),
                        'stoch_avg_horizon': safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer])})

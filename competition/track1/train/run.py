@@ -82,6 +82,7 @@ def main(args: argparse.Namespace):
     envs_train = {}
     envs_eval = {}
     wrappers = multi_scenario_env.wrappers_vec(config=config)
+    wrappers_eval = multi_scenario_env.wrappers_eval(config=config)
 
     envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
                    for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
@@ -89,7 +90,7 @@ def main(args: argparse.Namespace):
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
     
 
-    envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
+    envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed) 
                     for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]   
     envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
     envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
@@ -212,19 +213,19 @@ if __name__ == "__main__":
         "--checkpoint_freq",
         help="Save a model every checkpoint_freq calls to env.step().",
         type=int,
-        default=10_000,
+        default=20_000,
     )
     parser.add_argument(
         "--eval_eps",
         help="Number of evaluation epsiodes.",
         type=int,
-        default=30,
+        default=10,
     )
     parser.add_argument(
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=25_000,
+        default=10_000,
     )
     parser.add_argument(
         "--alg",
@@ -244,8 +245,8 @@ if __name__ == "__main__":
         type=str,
         # default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_24_16_49_01/checkpoint/PPO_1000000_steps.zip"
-        default="/home/yuant426/Downloads/PPO_1000000_steps (1).zip",
-        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_25_16_55_10/checkpoint/PPO_1000000_steps.zip"
+        # default="/home/yuant426/Downloads/PPO_1000000_steps (1).zip",
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_09_14_56_43/checkpoint/PPO_400000_steps.zip"
     )
     parser.add_argument(
         "--w0",

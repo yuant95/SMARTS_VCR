@@ -20,6 +20,7 @@
 
 import logging
 import weakref
+import warnings
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -71,7 +72,7 @@ class AgentsProvider(Provider):
         # pytype: enable=attribute-error
 
     @property
-    def action_spaces(self) -> Set[ActionSpaceType]:
+    def actions(self) -> Set[ActionSpaceType]:
         # must be implemented by derived classes
         raise NotImplementedError
 
@@ -125,13 +126,17 @@ class AgentsProvider(Provider):
         self._remove_actors_without_actions(agent_actions)
         agents_without_actors = agent_actions.keys() - self._my_agent_actors.keys()
         if agents_without_actors:
-            self._log.error(
-                "actions specified for an agent without an actor: %s. Cleaning up social agents.",
-                agents_without_actors,
+            warnings.warn(
+                "actions specified for an agent without an actor: %s."
+                % agents_without_actors,
             )
-            orphaned_social_agents = (
-                self._agent_manager.social_agent_ids & agents_without_actors
-            )
+            # self._log.error(
+            #     "actions specified for an agent without an actor: %s. Cleaning up social agents.",
+            #     agents_without_actors,
+            # )
+            # orphaned_social_agents = (
+            #     self._agent_manager.social_agent_ids & agents_without_actors
+            # )
             # self._agent_manager.teardown_social_agents(orphaned_social_agents)
 
         agent_manager = self._agent_manager
@@ -222,7 +227,7 @@ class AgentPhysicsProvider(AgentsProvider):
         super().__init__(sim)
 
     @property
-    def action_spaces(self) -> Set[ActionSpaceType]:
+    def actions(self) -> Set[ActionSpaceType]:
         return {
             ActionSpaceType.Continuous,
             ActionSpaceType.Lane,
@@ -241,7 +246,7 @@ class DirectControlProvider(AgentsProvider):
         super().__init__(sim)
 
     @property
-    def action_spaces(self) -> Set[ActionSpaceType]:
+    def actions(self) -> Set[ActionSpaceType]:
         return {ActionSpaceType.Direct}
 
 
@@ -252,7 +257,7 @@ class MotionPlannerProvider(AgentsProvider):
         super().__init__(sim)
 
     @property
-    def action_spaces(self) -> Set[ActionSpaceType]:
+    def actions(self) -> Set[ActionSpaceType]:
         return {ActionSpaceType.TargetPose, ActionSpaceType.MultiTargetPose}
 
 
@@ -263,5 +268,5 @@ class TrajectoryInterpolationProvider(AgentsProvider):
         super().__init__(sim)
 
     @property
-    def action_spaces(self) -> Set[ActionSpaceType]:
+    def actions(self) -> Set[ActionSpaceType]:
         return {ActionSpaceType.TrajectoryWithTime}

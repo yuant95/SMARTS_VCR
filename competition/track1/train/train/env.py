@@ -16,6 +16,7 @@ from smarts.env.wrappers.format_action import FormatAction
 from smarts.env.wrappers.format_obs import FormatObs
 from smarts.env.wrappers.frame_stack import FrameStack
 from smarts.env.wrappers.single_agent import SingleAgent
+from smarts.env.wrappers.recorder_wrapper import RecorderWrapper
 
 
 def wrappers_baseline(config: Dict[str, Any]):
@@ -74,6 +75,39 @@ def wrappers_vec(config: Dict[str, Any]):
         SingleAgent,
         # lambda env: DummyVecEnv([lambda: env]),
         # lambda env: VecMonitor(venv=env, filename=str(config["logdir"]), info_keywords=("is_success",))
+    ]
+    # fmt: on
+
+    return wrappers
+
+def wrappers_eval(config: Dict[str, Any]):
+    # fmt: off
+    wrappers = [
+        # Used to format observation space such that it becomes gym-space compliant.
+        FormatObs,
+        # Used to format action space such that it becomes gym-space compliant.
+        lambda env: FormatAction(env=env, space=ActionSpaceType["TargetPose"]),
+
+        lambda env: HistoryStack(env=env, num_stack=config["num_stack"]),
+        Info,
+        # Used to shape rewards.
+        # Reward,
+        lambda env: Reward(env=env, weights=[config["w"+str(i)] for i in range(6)]), 
+        # Used to save selected observation parameters for use in DiscreteAction wrapper.
+        SaveObs,
+        # Used to discretize action space for easier RL training.
+        DiscreteAction if config["action_wrapper"]=="discrete" else Continuous_Action,
+        # Used to filter only the selected observation parameters.
+        FilterObs,
+        # Used to stack sequential observations to include temporal information. 
+        lambda env: FrameStack(env=env, num_stack=config["num_stack"]),
+        # Concatenates stacked dictionaries into numpy arrays.
+        lambda env: Concatenate(env=env, channels_order="first"),
+        # Modifies interface to a single agent interface, which is compatible with libraries such as gym, Stable Baselines3, TF-Agents, etc.
+        SingleAgent,
+        # lambda env: DummyVecEnv([lambda: env]),
+        # lambda env: VecMonitor(venv=env, filename=str(config["logdir"]), info_keywords=("is_success",))
+        lambda env: RecorderWrapper(env=env, video_name="video"),
     ]
     # fmt: on
 

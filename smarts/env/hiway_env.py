@@ -138,7 +138,9 @@ class HiWayEnv(gym.Env):
                 ),
             )
 
-        self._env_renderer = None
+        # self._env_renderer = None
+        from smarts.env.utils.record import AgentCameraRGBRender
+        self._env_renderer = AgentCameraRGBRender(self)
 
         visdom_client = None
         if visdom:
@@ -280,7 +282,8 @@ class HiWayEnv(gym.Env):
     def render(self, mode="human"):
         """Renders according to metadata requirements."""
 
-        if "rgb_array" in self.metadata["render.modes"]:
+        # if "rgb_array" in self.metadata["render.modes"]:
+        if mode == "rgb_array":
             if self._env_renderer is None:
                 from smarts.env.utils.record import AgentCameraRGBRender
 

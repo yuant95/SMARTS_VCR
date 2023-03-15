@@ -63,9 +63,9 @@ for name, routes in enumerate(route_comb):
                     end=(end_edge, end_lane, "max"),
                 ),
                 # Random flow rate, between x and y vehicles per minute.
-                rate=60 * random.uniform(10, 15),
+                rate=60 * random.uniform(30, 50),
                 # Random flow start time, between x and y seconds.
-                begin=random.uniform(0, 2),
+                begin=random.uniform(0, 1),
                 # For an episode with maximum_episode_steps=3000 and step
                 # time=0.1s, the maximum episode time=300s. Hence, traffic is
                 # set to end at 900s, which is greater than maximum episode
@@ -87,6 +87,11 @@ invertedai_boid_agent = t.BoidAgentActor(
 invertedai_agent_actor = t.SocialAgentActor(
     name="invertedai-agent",
     agent_locator=f"{agent_prefabs}:inverted-agent-v0",
+)
+
+zoo_agent_actor = t.SocialAgentActor(
+    name="zoo-agent",
+    agent_locator=f"{agent_prefabs}:zoo-agent-v0",
 )
 
 bubbles = [
@@ -123,7 +128,7 @@ route = Route(begin=("E0", 0, 5), end=("E1", 0, "max"))
 ego_missions = [
     Mission(
         route=route,
-        start_time=0,  # Delayed start, to ensure road has prior traffic.
+        start_time=1.5,  # Delayed start, to ensure road has prior traffic.
     )
 ]
 

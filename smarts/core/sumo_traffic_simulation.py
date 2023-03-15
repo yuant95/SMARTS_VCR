@@ -435,7 +435,7 @@ class SumoTrafficSimulation(TrafficProvider):
         return self._traci_conn is not None
 
     @property
-    def action_spaces(self):
+    def actions(self):
         # Unify interfaces with other providers
         return {}
 
@@ -654,9 +654,9 @@ class SumoTrafficSimulation(TrafficProvider):
             self._handle_traci_disconnect(e)
 
     def _create_vehicle(self, vehicle_id, dimensions, role: ActorRole):
-        assert (
-            type(vehicle_id) == str
-        ), f"SUMO expects string ids: {vehicle_id} is a {type(vehicle_id)}"
+        # assert (
+        #     type(vehicle_id) == str
+        # ), f"SUMO expects string ids: {vehicle_id} is a {type(vehicle_id)}"
 
         self._log.debug("Non SUMO vehicle %s joined simulation", vehicle_id)
         self._non_sumo_vehicle_ids.add(vehicle_id)

@@ -584,7 +584,7 @@ class SMARTS(ProviderManager):
         return vehicle
 
     def _provider_for_actor(self, actor_id: str) -> Optional[Provider]:
-        for provider in self.providers:
+        for provider in self._providers:
             if provider.manages_actor(actor_id):
                 return provider
         return None
@@ -595,7 +595,7 @@ class SMARTS(ProviderManager):
             provider.stop_managing(actor_id)
 
     def _remove_vehicle_from_providers(self, vehicle_id: str):
-        for provider in self.providers:
+        for provider in self._providers:
             provider.remove_actor(vehicle_id)
 
     def create_vehicle_in_providers(
@@ -611,8 +611,8 @@ class SMARTS(ProviderManager):
         role = ActorRole.EgoAgent if is_ego else ActorRole.SocialAgent
         interface = self._agent_manager.agent_interface_for_agent_id(agent_id)
         prev_provider = self._provider_for_actor(vehicle.id)
-        for provider in self.providers:
-            if interface.action_space in provider.action_spaces:
+        for provider in self._providers:
+            if interface.action in provider.actions:
                 state = VehicleState(
                     actor_id=vehicle.id,
                     source=provider.source_str,
@@ -704,7 +704,7 @@ class SMARTS(ProviderManager):
         # now try to find one who will take it...
         if isinstance(state, VehicleState):
             state.role = ActorRole.Social  # XXX ASSUMPTION: might use Unknown instead?
-        for new_provider in self.providers:
+        for new_provider in self._providers:
             if new_provider == provider:
                 continue
             if new_provider.can_accept_actor(state):
@@ -918,7 +918,7 @@ class SMARTS(ProviderManager):
     @property
     def dynamic_action_spaces(self) -> Set[ActionSpaceType]:
         """The set of vehicle action spaces that use dynamics (physics)."""
-        return self._agent_physics_provider.action_spaces
+        return self._agent_physics_provider.actions
 
     @property
     def traffic_sim(self) -> Optional[TrafficProvider]:
@@ -1105,7 +1105,7 @@ class SMARTS(ProviderManager):
 
     def _setup_providers(self, scenario) -> ProviderState:
         provider_state = ProviderState()
-        for provider in self.providers:
+        for provider in self._providers:
             try:
                 new_provider_state = provider.setup(scenario)
             except Exception as provider_error:
@@ -1114,12 +1114,12 @@ class SMARTS(ProviderManager):
         return provider_state
 
     def _teardown_providers(self):
-        for provider in self.providers:
+        for provider in self._providers:
             provider.teardown()
         self._last_provider_state = None
 
     def _harmonize_providers(self, provider_state: ProviderState):
-        for provider in self.providers:
+        for provider in self._providers:
             try:
                 provider.sync(provider_state)
             except Exception as provider_error:
@@ -1129,7 +1129,7 @@ class SMARTS(ProviderManager):
             self._sync_vehicles_to_renderer()
 
     def _reset_providers(self):
-        for provider in self.providers:
+        for provider in self._providers:
             try:
                 provider.reset()
             except Exception as provider_error:
@@ -1191,7 +1191,7 @@ class SMARTS(ProviderManager):
 
             interface = self._agent_manager.agent_interface_for_agent_id(agent_id)
             assert interface, f"agent {agent_id} has no interface"
-            if interface.action_space not in provider.action_spaces:
+            if interface.action not in provider.actions:
                 continue
             assert isinstance(provider, AgentsProvider)
 
@@ -1210,7 +1210,7 @@ class SMARTS(ProviderManager):
 
     def _step_providers(self, actions) -> ProviderState:
         provider_vehicle_actions = dict()
-        for provider in self.providers:
+        for provider in self._providers:
             agent_actions, vehicle_actions = self._provider_actions(provider, actions)
             provider_vehicle_actions[provider] = vehicle_actions
             if isinstance(provider, AgentsProvider):
@@ -1223,7 +1223,7 @@ class SMARTS(ProviderManager):
         accumulated_provider_state = ProviderState()
 
         agent_vehicle_ids = self._vehicle_index.agent_vehicle_ids()
-        for provider in self.providers:
+        for provider in self._providers:
             try:
                 provider_state = provider.step(
                     provider_vehicle_actions[provider],
@@ -1367,7 +1367,7 @@ class SMARTS(ProviderManager):
                 vehicle_collisions.append(collision)
 
         traffic_providers = [
-            p for p in self.providers if isinstance(p, TrafficProvider)
+            p for p in self._providers if isinstance(p, TrafficProvider)
         ]
         for vehicle_id in self._vehicle_index.social_vehicle_ids():
             for provider in traffic_providers:
