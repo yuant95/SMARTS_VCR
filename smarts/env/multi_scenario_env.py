@@ -167,16 +167,6 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
-    elif scenario == "ITRA_1_to_2lane_left_turn_t":
-        return {
-            "scenario": str(
-                pathlib.Path(__file__).absolute().parents[1]
-                / "scenarios"
-                / "ITRA"
-                / "ITRA_1_to_2lane_left_turn_t"
-            ),
-            "num_agent": 1,
-        }
     elif scenario == "4lane_t":
         return {
             "scenario": str(
@@ -295,6 +285,26 @@ def _get_env_specs(scenario: str):
                 / "scenarios"
                 / "straight"
                 / "3lane_overtake"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "1_to_1lane_left_turn_c_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_1lane_left_turn_c_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "3lane_single_agent_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "merge"
+                / "3lane_single_agent_itra"
             ),
             "num_agent": 1,
         }
