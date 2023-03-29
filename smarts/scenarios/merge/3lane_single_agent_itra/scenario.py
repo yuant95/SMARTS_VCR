@@ -54,10 +54,10 @@ for name, routes in enumerate(route_comb):
             Flow(
                 route=Route(
                     begin=("gneE3", start_lane, 0),
-                    end=("gneE3", end_lane, "max"),
+                    end=("gneE4", end_lane, "max"),
                 ),
                 # Random flow rate, between x and y vehicles per minute.
-                rate=60 * random.uniform(30, 60),
+                rate=60 * random.uniform(10, 20),
                 # Random flow start time, between x and y seconds.
                 begin=random.uniform(0, 5),
                 # For an episode with maximum_episode_steps=3000 and step
@@ -72,65 +72,43 @@ for name, routes in enumerate(route_comb):
         ]
     )
 
-
-agent_prefabs = "smarts.scenarios.straight.3lane_cruise_single_agent_itra_batch.agent_prefabs"
-
-# motion_planner_actor = t.SocialAgentActor(
-#     name="motion-planner-agent",
-#     agent_locator=f"{agent_prefabs}:motion-planner-agent-v0",
-# )
-
-# zoo_agent_actor = t.SocialAgentActor(
-#     name="zoo-agent",
-#     agent_locator=f"{agent_prefabs}:zoo-agent-v0",
-# )
-
-# invertedai_agent_actor = t.SocialAgentActor(
-#     name="invertedai-agent",
-#     agent_locator=f"{agent_prefabs}:inverted-agent-v0",
-# )
+agent_prefabs = "smarts.scenarios.merge.3lane_single_agent_itra.agent_prefabs"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",
     agent_locator=f"{agent_prefabs}:inverted-boid-agent-v0",
 )
 
+motion_planner_actor = t.SocialAgentActor(
+    name="motion-planner-agent",
+    agent_locator=f"{agent_prefabs}:motion-planner-agent-v0",
+)
+
+zoo_agent_actor = t.SocialAgentActor(
+    name="zoo-agent",
+    agent_locator=f"{agent_prefabs}:zoo-agent-v0",
+)
+
 bubbles = [
     # t.Bubble(
-    #     zone=t.MapZone(start=("gneE3", 0, 10), length=250, n_lanes=3),
+    #     zone=t.MapZone(start=("E0", 0, 5), length=2, n_lanes=1),
     #     margin=2,
     #     actor=invertedai_boid_agent,
     #     keep_alive=True, 
     # ),
     t.Bubble(
-        zone=t.PositionalZone(pos=(105, 0), size=(210, 20)),
+        zone=t.PositionalZone(pos=(100, 20), size=(120, 120)),
         margin=5,
         actor=invertedai_boid_agent,
-        keep_alive=True, 
+        keep_alive=True,
     ),
 ]
 
-social_agent_missions = {
-    "all": (
-        [
-            t.SocialAgentActor(
-                name="keep-lane-agent-v0",
-                agent_locator="zoo.policies:keep-lane-agent-v0",
-            ),
-        ],
-        [
-            t.Mission(
-                t.Route(begin=("gneE3", 0, 10), end=("gneE3", 0, "max"))
-            )
-        ],
-    ),
-}
-
-route = Route(begin=("gneE3", 0, 10), end=("gneE3", 0, "max"))
+route = Route(begin=("gneE6", 0, 10), end=("gneE4", 2, "max"))
 ego_missions = [
     Mission(
         route=route,
-        start_time=17,  # Delayed start, to ensure road has prior traffic.
+        start_time=50,  # Delayed start, to ensure road has prior traffic.
     )
 ]
 
@@ -139,7 +117,6 @@ gen_scenario(
         traffic=traffic,
         ego_missions=ego_missions,
         bubbles=bubbles,
-        social_agent_missions=social_agent_missions,
     ),
     output_dir=Path(__file__).parent,
 )

@@ -22,62 +22,75 @@ import random
 from itertools import combinations
 from pathlib import Path
 
-from smarts.sstudio import gen_scenario
-from smarts.sstudio.types import Flow, Mission, Route, Scenario, Traffic, TrafficActor
+from smarts.sstudio.genscenario import gen_scenario
+from smarts.sstudio.types import (
+    Flow,
+    MapZone,
+    Mission,
+    Route,
+    Scenario,
+    Traffic,
+    TrafficActor,
+    TrapEntryTactic,
+)
 from smarts.sstudio import types as t
 
-normal = TrafficActor(
+intersection_car = TrafficActor(
     name="car",
 )
 
+vertical_routes = [
+    ("north-NS", "south-NS"),
+    ("south-SN", "north-SN"),
+]
+
 horizontal_routes = [
-    ("E4", 0, "E1", 0),
-    ("E4", 1, "E1", 1),
-    ("-E1", 0, "-E4", 0),
-    ("-E1", 1, "-E4", 1),
+    ("west-WE", "east-WE"),
+    ("east-EW", "west-EW"),
 ]
 
 turn_left_routes = [
-    ("E0", 0, "E1", 1),
-    ("E4", 1, "-E0", 0),
+    ("south-SN", "west-EW"),
+    ("west-WE", "north-SN"),
+    ("north-NS", "east-WE"),
+    ("east-EW", "south-NS"),
 ]
 
 turn_right_routes = [
-    ("E0", 0, "-E4", 0),
-    ("-E1", 0, "-E0", 0),
+    ("south-SN", "east-WE"),
+    ("west-WE", "south-NS"),
+    ("north-NS", "west-EW"),
+    ("east-EW", "north-SN"),
 ]
 
-# Total route combinations = 8C1 + 8C2 + 8C3 + 8C4 + 8C5 = 218
-# Repeated route combinations = 218 * 2 = 436
-all_routes = horizontal_routes + turn_left_routes + turn_right_routes
-route_comb = [
-    com for elems in range(1, 6) for com in combinations(all_routes, elems)
-] * 2
+# Total route combinations = 12C1 + 12C2 + 12C3 + 12C4 = 793
+all_routes = vertical_routes + horizontal_routes + turn_left_routes + turn_right_routes
+route_comb = [com for elems in range(1, 5) for com in combinations(all_routes, elems)]
 traffic = {}
 for name, routes in enumerate(route_comb):
     traffic[str(name)] = Traffic(
         flows=[
             Flow(
                 route=Route(
-                    begin=(start_edge, start_lane, 0),
-                    end=(end_edge, end_lane, "max"),
+                    begin=(f"edge-{r[0]}", 0, 0),
+                    end=(f"edge-{r[1]}", 0, "max"),
                 ),
-                # Random flow rate, between x and y vehicles per minute.
-                rate=60 * random.uniform(15, 35),
-                # Random flow start time, between x and y seconds.
-                begin=random.uniform(0, 3),
+                # Random flow rate, between 3 and 5 vehicles per minute.
+                rate=60 * random.uniform(15, 30),
+                # Random flow start time, between 0 and 10 seconds.
+                begin=random.uniform(0, 5),
                 # For an episode with maximum_episode_steps=3000 and step
                 # time=0.1s, the maximum episode time=300s. Hence, traffic is
                 # set to end at 900s, which is greater than maximum episode
                 # time of 300s.
                 end=60 * 15,
-                actors={normal: 1},
+                actors={intersection_car: 1},
             )
-            for start_edge, start_lane, end_edge, end_lane in routes
+            for r in routes
         ]
     )
 
-agent_prefabs = "smarts.scenarios.intersection.1_to_2lane_left_turn_t_itra.agent_prefabs"
+agent_prefabs = "smarts.scenarios.intersection.1_to_1lane_left_turn_c_itra.agent_prefabs"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",
@@ -102,43 +115,40 @@ bubbles = [
     #     keep_alive=True, 
     # ),
     t.Bubble(
-        zone=t.PositionalZone(pos=(50, 40), size=(120, 120)),
+        zone=t.PositionalZone(pos=(0, 0), size=(240, 120)),
         margin=5,
         actor=invertedai_boid_agent,
         keep_alive=True
     ),
 ]
 
-social_agent_missions = {
-    "all": (
-        [
-            t.SocialAgentActor(
-                name="keep-lane-agent-v0",
-                agent_locator="zoo.policies:keep-lane-agent-v0",
-            ),
-        ],
-        [
-            t.Mission(
-                t.Route(begin=("E0", 0, 5), end=("E1", 0, "max"))
-            )
-        ],
-    ),
-}
-
-route = Route(begin=("E0", 0, 5), end=("E1", 0, "max"))
+route = Route(begin=("edge-west-WE", 0, 60), end=("edge-north-SN", 0, 40))
 ego_missions = [
     Mission(
         route=route,
-        start_time=3,  # Delayed start, to ensure road has prior traffic.
-    )
+        start_time=5,  # Delayed start, to ensure road has prior traffic.
+        entry_tactic=TrapEntryTactic(
+            wait_to_hijack_limit_s=1,
+            zone=MapZone(
+                start=(
+                    route.begin[0],
+                    route.begin[1],
+                    route.begin[2] - 5,
+                ),
+                length=10,
+                n_lanes=1,
+            ),
+            default_entry_speed=5,
+        ),
+    ),
 ]
 
+scnr_path = Path(__file__).parent
 gen_scenario(
     scenario=Scenario(
         traffic=traffic,
         ego_missions=ego_missions,
         bubbles=bubbles,
-        # social_agent_missions=social_agent_missions,
     ),
-    output_dir=Path(__file__).parent,
+    output_dir=scnr_path,
 )

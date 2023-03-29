@@ -298,6 +298,26 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
+    elif scenario == "1_to_1lane_left_turn_c_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_1lane_left_turn_c_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "3lane_single_agent_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "merge"
+                / "3lane_single_agent_itra"
+            ),
+            "num_agent": 1,
+        }
     elif os.path.isdir(scenario):
         import re
 
