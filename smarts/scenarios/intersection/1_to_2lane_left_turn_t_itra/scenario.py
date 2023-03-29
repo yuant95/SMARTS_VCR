@@ -63,9 +63,9 @@ for name, routes in enumerate(route_comb):
                     end=(end_edge, end_lane, "max"),
                 ),
                 # Random flow rate, between x and y vehicles per minute.
-                rate=60 * random.uniform(30, 50),
+                rate=60 * random.uniform(15, 35),
                 # Random flow start time, between x and y seconds.
-                begin=random.uniform(0, 1),
+                begin=random.uniform(0, 3),
                 # For an episode with maximum_episode_steps=3000 and step
                 # time=0.1s, the maximum episode time=300s. Hence, traffic is
                 # set to end at 900s, which is greater than maximum episode
@@ -105,6 +105,7 @@ bubbles = [
         zone=t.PositionalZone(pos=(50, 40), size=(120, 120)),
         margin=5,
         actor=invertedai_boid_agent,
+        keep_alive=True
     ),
 ]
 
@@ -128,7 +129,7 @@ route = Route(begin=("E0", 0, 5), end=("E1", 0, "max"))
 ego_missions = [
     Mission(
         route=route,
-        start_time=1.5,  # Delayed start, to ensure road has prior traffic.
+        start_time=3,  # Delayed start, to ensure road has prior traffic.
     )
 ]
 
