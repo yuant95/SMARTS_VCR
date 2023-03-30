@@ -10,7 +10,7 @@ import invertedai as iai
 from invertedai.common import RecurrentState
 import time
 
-ITRA_MAP_LOCATION = "smarts:3lane_cruise_single_agent"
+ITRA_MAP_LOCATION = "smarts:3lane_cruise_single_agent_extended"
 
 iai.add_apikey("JVzQDGMjeI7nMdZ0Ydl9G6yRD9NdxmPE1QCr0UGe")
 
@@ -64,7 +64,7 @@ class invertedAiBoidAgent(Agent):
             # Code for export birdview for debugging
 
             image = res.birdview.decode()
-            folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
+            folder = "/home/yuantian/miniconda3/envs/smartsEnv2/lib/python3.8/site-packages/videos/iai"
             time_stamp = int(time.time())
             from moviepy.editor import ImageClip
             with ImageClip(image) as image_clip:
