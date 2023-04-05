@@ -18,7 +18,10 @@ class invertedAiBoidAgent(Agent):
     def __init__(self):
         self.location = ITRA_MAP_LOCATION
         self.recurrent_states = {}
-        self.offset = [105, 0.0]
+        # Calculate the offset between iai map and smarts map
+        # iai map is centered at map center while smarts map is centered at 
+        
+        self.offset = [-502163.15625, -99]
         # self.step_num = 0
         super().__init__()
         
@@ -64,7 +67,7 @@ class invertedAiBoidAgent(Agent):
             # Code for export birdview for debugging
 
             image = res.birdview.decode()
-            folder = "/home/yuantian/miniconda3/envs/smartsEnv2/lib/python3.8/site-packages/videos/iai"
+            folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
             time_stamp = int(time.time())
             from moviepy.editor import ImageClip
             with ImageClip(image) as image_clip:
@@ -72,7 +75,7 @@ class invertedAiBoidAgent(Agent):
                     f"{folder}/video_{time_stamp}.jpeg"
                 )
             
-            # fig, ax = plt.subplots(constrained_layout=True, figsize=(5, 5))
+            # fig, ax = plt.subplots(constraineds_layout=True, figsize=(5, 5))
             # ax.set_axis_off(), ax.imshow(birdview)
 
 
@@ -242,16 +245,8 @@ register(
 register(
     locator="motion-planner-agent-v0",
     entry_point=lambda **kwargs: AgentSpec(
-        interface=AgentInterface(waypoints=True, action=ActionSpaceType.TargetPose),
+        interface=AgentInterface(waypoints=True, action=ActionSpaceType.TargetPose, neighborhood_vehicles=True),
         agent_builder=MotionPlannerAgent,
-    ),
-)
-
-register(
-    locator="inverted-agent-v0",
-    entry_point=lambda **kwargs: AgentSpec(
-        interface=AgentInterface(waypoints=True, action=ActionSpaceType.TargetPose),
-        agent_builder=invertedAiAgent,
     ),
 )
 
@@ -261,6 +256,7 @@ register(
         interface=AgentInterface(
             action=ActionSpaceType.TargetPose,
             waypoints=True,
+            neighborhood_vehicles=True
         ),
         agent_builder=invertedAiBoidAgent,
     ),
