@@ -17,6 +17,7 @@ from smarts.env.wrappers.format_obs import FormatObs
 from smarts.env.wrappers.frame_stack import FrameStack
 from smarts.env.wrappers.single_agent import SingleAgent
 from smarts.env.wrappers.recorder_wrapper import RecorderWrapper
+from smarts.env.wrappers.parallel_env import ParallelEnv
 
 
 def wrappers_baseline(config: Dict[str, Any]):
@@ -105,9 +106,9 @@ def wrappers_eval(config: Dict[str, Any]):
         lambda env: Concatenate(env=env, channels_order="first"),
         # Modifies interface to a single agent interface, which is compatible with libraries such as gym, Stable Baselines3, TF-Agents, etc.
         SingleAgent,
+        lambda env: RecorderWrapper(env=env, video_name="video", traffic_agent=config["traffic_agent"]),
         # lambda env: DummyVecEnv([lambda: env]),
         # lambda env: VecMonitor(venv=env, filename=str(config["logdir"]), info_keywords=("is_success",))
-        lambda env: RecorderWrapper(env=env, video_name="video"),
     ]
     # fmt: on
 
@@ -128,8 +129,6 @@ def make(
     Returns:
         gym.Env: Environment corresponding to the `scenario`.
     """
-
-    # Create environment
     env = gym.make(
         "smarts.env:multi-scenario-v0",
         scenario=scenario,

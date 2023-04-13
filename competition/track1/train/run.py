@@ -2,9 +2,12 @@ from multiprocessing import dummy
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 import argparse
 import warnings
 import sys
+
+from functools import partial
 from datetime import datetime
 from itertools import cycle
 from pathlib import Path
@@ -20,7 +23,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env, VecMonitor 
 from train import env as multi_scenario_env
 from train import network
-
+    
 # To import submission folder
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "submission"))
 
@@ -84,14 +87,48 @@ def main(args: argparse.Namespace):
     wrappers = multi_scenario_env.wrappers_vec(config=config)
     wrappers_eval = multi_scenario_env.wrappers_eval(config=config)
 
+    traffic_agent = config["traffic_agent"]
+    if traffic_agent == "sumo":
+        scenarios = config["sumo_scenarios"]
+    elif traffic_agent == "smarts":
+        scenarios = config["smarts_scenarios"]
+    elif traffic_agent == "itra":
+        scenarios = config["itra_scenarios"]
+    else:
+        raise RuntimeError("Traffic agent type {} is not supported.".format(traffic_agent))
+                   
+    # from smarts.env.multi_scenario_env import multi_scenario_v0_env
+    # env_constructors = [
+    #     partial(multi_scenario_v0_env, scenario=scen, 
+    #     img_meters=config["img_meters"],
+    #     img_pixels=config["img_pixels"],
+    #     action_space="TargetPose",
+    #     headless= True,
+    #     visdom= False,
+    #     sumo_headless = not config["sumo_gui"],
+    #     envision_record_data_replay_path= None,
+    #     wrappers=[]) 
+    #     for scen, seed in zip(scenarios, range(len(scenarios)))
+    # ]
+
+    # # Create parallel environments
+    # envs_train = [ParallelEnv(
+    #     env_constructors=env_constructors,
+    #     auto_reset=True,
+    #     seed=42,
+    # )]
+    
+    # envs_train = ParallelEnv(env_constructors=env_constructors,
+    #                         auto_reset=True, 
+    #                         seed=42)
+
     envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-                   for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]
+                   for scen, seed in zip(scenarios, range(len(scenarios))) ]
     envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
-    
 
     envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed) 
-                    for scen, seed in zip(config["scenarios"], range(len(config["scenarios"]))) ]   
+                    for scen, seed in zip(scenarios, range(len(scenarios))) ]   
     envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
     envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
 
@@ -225,7 +262,7 @@ if __name__ == "__main__":
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=10_000,
+        default=30_000,
     )
     parser.add_argument(
         "--alg",
@@ -243,10 +280,9 @@ if __name__ == "__main__":
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        # default="",
-        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_01_24_16_49_01/checkpoint/PPO_1000000_steps.zip"
+        default="",
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
         # default="/home/yuant426/Downloads/PPO_1000000_steps (1).zip",
-        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_09_14_56_43/checkpoint/PPO_400000_steps.zip"
     )
     parser.add_argument(
         "--w0",
@@ -284,6 +320,13 @@ if __name__ == "__main__":
         type=float,
         default= 0.0
     )
+    parser.add_argument(
+        "--traffic_agent",
+        help="Pick traffic agent from sumo, smarts zoo, and itra",
+        type=str,
+        default= "sumo"
+    )
+
 
     args = parser.parse_args()
 

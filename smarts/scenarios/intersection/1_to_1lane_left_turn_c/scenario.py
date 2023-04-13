@@ -75,9 +75,9 @@ for name, routes in enumerate(route_comb):
                     end=(f"edge-{r[1]}", 0, "max"),
                 ),
                 # Random flow rate, between 3 and 5 vehicles per minute.
-                rate=60 * random.uniform(3, 5),
+                rate=60 * random.uniform(5, 15),
                 # Random flow start time, between 0 and 10 seconds.
-                begin=random.uniform(0, 10),
+                begin=random.uniform(0, 5),
                 # For an episode with maximum_episode_steps=3000 and step
                 # time=0.1s, the maximum episode time=300s. Hence, traffic is
                 # set to end at 900s, which is greater than maximum episode
@@ -93,7 +93,7 @@ route = Route(begin=("edge-west-WE", 0, 60), end=("edge-north-SN", 0, 40))
 ego_missions = [
     Mission(
         route=route,
-        start_time=12,  # Delayed start, to ensure road has prior traffic.
+        start_time=10,  # Delayed start, to ensure road has prior traffic.
         entry_tactic=TrapEntryTactic(
             wait_to_hijack_limit_s=1,
             zone=MapZone(

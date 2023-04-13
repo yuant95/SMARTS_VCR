@@ -12,7 +12,7 @@ from invertedai.common import RecurrentState
 import time
 
 
-ITRA_MAP_LOCATION = "smarts:1_to_1lane_left_turn_c_extended_no_stopline"
+ITRA_MAP_LOCATION = "smarts:1_to_1lane_left_turn_c_extended"
 
 iai.add_apikey("JVzQDGMjeI7nMdZ0Ydl9G6yRD9NdxmPE1QCr0UGe")
 

@@ -1,27 +1,38 @@
 smarts:
   # Environment
-  sumo_gui: True # If True, enables sumo-gui display.
+  sumo_gui: False # If True, enables sumo-gui display.
   head: False
   img_meters: 50 # Observation image area size in meters.
   img_pixels: 112 # Observation image size in pixels.
   num_stack: 3 # Number of frames to stack as input to policy network.
-  scenarios: 
-    # - "1_to_2lane_left_turn_c"
-    # - "1_to_2lane_left_turn_t"
-    # - "3lane_merge_single_agent"
-    # - "3lane_cruise_single_agent"
-    # - "3lane_overtake"
-    # - "4lane_t"
-    # - "ITRA_1_to_2lane_left_turn_t"
-    # - "3lane_cruise_single_agent_itra"
-    # - "3lane_cruise_single_agent_social"
-    # - "1_to_2lane_left_turn_t_itra"
-    # - "1_to_2lane_left_turn_t_social"
-    # - "3lane_single_agent_itra"
+  sumo_scenarios: 
+# SUMO Training 
 
-    # - "3lane_cruise_single_agent_itra_batch"
-    # - "1_to_2lane_left_turn_t_itra"
+    - "3lane_cruise_single_agent"
+    - "3lane_merge_single_agent"
+    - "3lane_overtake"
+    - "1_to_1lane_left_turn_c"
+
+    - "1_to_2lane_left_turn_c"
+    - "1_to_2lane_left_turn_t"
+
+  smarts_scenarios:
+# SMARTS ZOO Training
+
+    - "3lane_cruise_single_agent_social"
+    - "1_to_2lane_left_turn_t_social"
+  
+  itra_scenarios:
+# ITRA Training 
+
+    - "3lane_cruise_single_agent_itra_batch"
+    - "3lane_single_agent_itra"
     - "1_to_1lane_left_turn_c_itra"
+    - "1_to_1lane_left_turn_c_itra_stop"
+    - "1_to_2lane_left_turn_c_itra"
+    - "1_to_2lane_left_turn_t_itra"
+    
+
 
 
   # Training

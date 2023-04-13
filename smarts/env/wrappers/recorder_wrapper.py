@@ -36,7 +36,7 @@ class RecorderWrapper(gym.Wrapper):
     A Wrapper that interacts the gym environment with the GifRecorder to record video step by step.
     """
 
-    def __init__(self, video_name: str, env: gym.Env):
+    def __init__(self, video_name: str, env: gym.Env, traffic_agent: str):
 
         root_path = Path(__file__).parents[3]  # smarts main repo path
         video_folder = os.path.join(
@@ -50,7 +50,7 @@ class RecorderWrapper(gym.Wrapper):
         self.video_name_folder = os.path.join(
             video_folder, video_name
         )  # frames folder that uses to contain temporary frame images, will be created using video name and current time stamp in gif_recorder when recording starts
-        self.gif_recorder = GifRecorder(self.video_name_folder, self.env)
+        self.gif_recorder = GifRecorder(video_name_folder=self.video_name_folder, traffic_agent = traffic_agent, env=self.env)
         self.recording = False
         self.current_frame = -1
 

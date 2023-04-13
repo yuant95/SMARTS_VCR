@@ -48,12 +48,15 @@ class GifRecorder:
     Use images(rgb_array) to create a gif file.
     """
 
-    def __init__(self, video_name_folder: str, env: gym.Env):
+    def __init__(self, video_name_folder: str, traffic_agent: str, env: gym.Env):
+        self.env = env
+        self.traffic_agent = traffic_agent
+        self.scenarios_name = self.env.spec._kwargs["scenario"]
+
         timestamp_str = time.strftime("%Y%m%d-%H%M%S")
         self.frame_folder = (
-            video_name_folder + "_" + timestamp_str
-        )  # folder that uses to contain temporary frame images, will be deleted after the gif is created.
-        self.env = env
+            video_name_folder + "_" + self.scenarios_name + "_" + timestamp_str
+        )  # folder that uses to contain temporary frame images, will be deleted after the gif is created.# folder that uses to contain temporary frame images, will be deleted after the gif is created.
 
         Path.mkdir(
             Path(self.frame_folder), exist_ok=True
@@ -79,19 +82,21 @@ class GifRecorder:
         """
         Use the images in the same folder to create a gif file.
         """
-        video_path = f"{self._video_root_path}/{self._video_name}_{self.count}.gif"
-        with ImageSequenceClip(self.frame_folder, fps=10) as clip:
+        timestamp_str = time.strftime("%Y%m%d-%H%M%S")
+        video_path = f"{self._video_root_path}/{self._video_name}_{self.scenarios_name}_{timestamp_str}.gif"
+        with ImageSequenceClip(self.frame_folder, fps=3) as clip:
             clip.write_gif(video_path)
         clip.close()
-        wandb.log({"video":wandb.Video(video_path, fps=10, format="gif", caption=str(self.count))})
+        wandb.log({"video":wandb.Video(video_path, fps=3, format="gif", caption=video_path)})
 
-        #DEBUG
-        iai_folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
-        video_path = f"{self._video_root_path}/{self._video_name}_{self.count}_iai.gif"
-        with ImageSequenceClip(iai_folder, fps=10) as clip:
-            clip.write_gif(video_path)
-        clip.close()
-        wandb.log({"video":wandb.Video(video_path, fps=10, format="gif", caption=f"{self.count}_iai")})
+        #DEBUG for IAI
+        if self.traffic_agent == "itra":
+            iai_folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
+            video_path = f"{self._video_root_path}/{self._video_name}_{self.count}_iai.gif"
+            with ImageSequenceClip(iai_folder, fps=10) as clip:
+                clip.write_gif(video_path)
+            clip.close()
+            wandb.log({"video":wandb.Video(video_path, fps=10, format="gif", caption=f"{self.count}_iai")})
         
         self.count += 1
 
@@ -102,8 +107,13 @@ class GifRecorder:
         shutil.rmtree(self.frame_folder, ignore_errors=True)
 
     def clear_content(self):
-        iai_folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
-        for folder in [self.frame_folder, iai_folder]:
+        # IAI debug code
+        folder_list = [self.frame_folder]
+        if self.traffic_agent == "itra":
+            iai_folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
+            folder_list.append(iai_folder)
+        
+        for folder in folder_list:
             for filename in os.listdir(folder):
                 file_path = os.path.join(folder, filename)
                 try:

@@ -333,7 +333,7 @@ class Reward(gym.Wrapper):
         # j_d = np.amax(np.exp(-w_dist * di))
 
         # return np.float64(j_d)
-        return np.amax(di)/ego["speed"]
+        return np.amin(di)/ego["speed"]
 
     def _jerk_angular(self, agent_obs: Dict[str, Dict[str, Any]]) -> np.float64:
         ja_squared = np.sum(np.square(agent_obs["ego"]["angular_jerk"]))

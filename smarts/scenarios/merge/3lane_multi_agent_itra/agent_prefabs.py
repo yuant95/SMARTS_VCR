@@ -12,7 +12,7 @@ from invertedai.common import RecurrentState
 import time
 
 
-ITRA_MAP_LOCATION = "smarts:1_to_1lane_left_turn_c_extended_no_stopline"
+ITRA_MAP_LOCATION = "smarts:3lane_single_agent_extended"
 
 iai.add_apikey("JVzQDGMjeI7nMdZ0Ydl9G6yRD9NdxmPE1QCr0UGe")
 
@@ -20,7 +20,7 @@ class invertedAiBoidAgent(Agent):
     def __init__(self):
         self.location = ITRA_MAP_LOCATION
         self.recurrent_states = {}
-        self.offset = [0, 0]
+        self.offset = [-32, -75.8]
         # self.step_num = 0
         super().__init__()
         

@@ -38,7 +38,7 @@ def _discrete() -> Tuple[Callable[[Dict[str, int]], Dict[str, np.ndarray]], gym.
 
     time_delta = 0.1  # Time, in seconds, between steps.
     angle = 15 / 180 * np.pi  # Turning angle in radians
-    speed = 40  # Speed in km/h
+    speed = 50  # Speed in km/h
     dist = (
         speed * 1000 / 3600 * time_delta
     )  # Distance, in meter, travelled in time_delta seconds

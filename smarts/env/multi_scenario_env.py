@@ -122,6 +122,7 @@ def multi_scenario_v0_env(
         for i in range(env_specs["num_agent"])
     }
 
+    
     env = HiWayEnv(
         scenarios=[env_specs["scenario"]],
         agent_specs=agent_specs,
@@ -136,6 +137,69 @@ def multi_scenario_v0_env(
 
     return env
 
+
+def multi_scenario_v0_env_2(
+    scenario: str,
+    img_meters: int = 64,
+    img_pixels: int = 256,
+    action_space="TargetPose",
+    headless: bool = True,
+    visdom: bool = False,
+    sumo_headless: bool = True,
+    envision_record_data_replay_path: Optional[str] = None,
+    wrappers=[],
+):
+    env_specs = _get_env_specs(scenario)
+    # sstudio.build_scenario(scenario=[env_specs["scenario"]])
+
+    agent_specs = {
+        f"Agent_{i}": AgentSpec(
+            interface=resolve_agent_interface(img_meters, img_pixels, action_space)
+        )
+        for i in range(env_specs["num_agent"])
+    }
+    
+    env = HiWayEnv(
+        scenarios=[env_specs["scenario"]],
+        agent_specs=agent_specs,
+        sim_name="MultiScenario",
+        headless=headless,
+        visdom=visdom,
+        sumo_headless=sumo_headless,
+        envision_record_data_replay_path=envision_record_data_replay_path,
+    )
+    env = _LimitTargetPose(env=env)
+    env = _InfoScore(env=env)
+    from smarts.env.wrappers.frame_stack import FrameStack
+    from train.action import Action as DiscreteAction
+    from train.action import Continuous_Action as Continuous_Action
+    from train.observation import Concatenate, FilterObs, SaveObs
+    from train.info import Info
+    from train.reward import Reward
+    from train.history import HistoryStack
+
+    from smarts.core.controllers import ActionSpaceType
+    from smarts.env.wrappers.format_action import FormatAction
+    from smarts.env.wrappers.format_obs import FormatObs
+    from smarts.env.wrappers.frame_stack import FrameStack
+    from smarts.env.wrappers.single_agent import SingleAgent
+    from smarts.env.wrappers.recorder_wrapper import RecorderWrapper
+    env = FormatObs(env=env)
+    env = FormatAction(env=env, space=ActionSpaceType["TargetPose"])
+    env = HistoryStack(env=env, num_stack=3)
+    env = Info(env)
+    env = Reward(env)
+    env = SaveObs(env)
+    env = DiscreteAction(env)
+    env = FilterObs(env)
+    env = FrameStack(env)
+    env = Concatenate(env=env, channels_order="first")
+    env = SingleAgent(env)
+
+    for wrapper in wrappers:
+        env = wrapper(env)
+
+    return env
 
 def _get_env_specs(scenario: str):
     """Returns the appropriate environment parameters for each scenario.
@@ -298,6 +362,16 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
+    elif scenario == "1_to_1lane_left_turn_c":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_1lane_left_turn_c"
+            ),
+            "num_agent": 1,
+        }
     elif scenario == "1_to_1lane_left_turn_c_itra":
         return {
             "scenario": str(
@@ -305,6 +379,16 @@ def _get_env_specs(scenario: str):
                 / "scenarios"
                 / "intersection"
                 / "1_to_1lane_left_turn_c_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "1_to_1lane_left_turn_c_itra_stop":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_1lane_left_turn_c_itra_stop"
             ),
             "num_agent": 1,
         }

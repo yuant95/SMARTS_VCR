@@ -63,7 +63,7 @@ for name, routes in enumerate(route_comb):
                     end=(end_edge, end_lane, "max"),
                 ),
                 # Random flow rate, between x and y vehicles per minute.
-                rate=60 * random.uniform(15, 35),
+                rate=60 * random.uniform(5, 15),
                 # Random flow start time, between x and y seconds.
                 begin=random.uniform(0, 3),
                 # For an episode with maximum_episode_steps=3000 and step
@@ -129,7 +129,7 @@ route = Route(begin=("E0", 0, 5), end=("E1", 0, "max"))
 ego_missions = [
     Mission(
         route=route,
-        start_time=3,  # Delayed start, to ensure road has prior traffic.
+        start_time=4,  # Delayed start, to ensure road has prior traffic.
     )
 ]
 
