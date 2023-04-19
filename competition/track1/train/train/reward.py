@@ -172,6 +172,11 @@ class Reward(gym.Wrapper):
         sigma_center = 0.1 # percentage
         lane_center_offset = 0.5 * np.exp(- self._lane_center_offset(agent_obs)/ (2*sigma_center))
 
+        # If not moving, then humanness is 0
+        not_moving = agent_obs["events"]["not_moving"]
+        if not_moving:
+            return 0.0
+        
         return dist_to_obs+lane_center_offset
         
     # Only consider wrong way for now
@@ -181,14 +186,20 @@ class Reward(gym.Wrapper):
         score = np.float64(1.0)
         if agent_obs["events"]["wrong_way"]:
             print(f"Wrong way.")
-            score -= np.float64(0.5)
+            score -= np.float64(0.8)
         if agent_obs["events"]["on_shoulder"]:
             print(f"On shoulder.")
-            score -= np.float64(0.5)
+            score -= np.float64(0.2)
 
         # score -= self._speed_limit(agent_obs)
 
         # return min(np.float64(10.0), max(score, np.float64(-10.0))) 
+
+        # If not moving, then humanness is 0
+        not_moving = agent_obs["events"]["not_moving"]
+        if not_moving:
+            return 0.0
+        
         return score
 
     def _time(self, agent_obs: Dict[str, Dict[str, Any]]
