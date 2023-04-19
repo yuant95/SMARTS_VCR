@@ -126,9 +126,9 @@ class Reward(gym.Wrapper):
             agent_obs = obs[agent_id]
             # These are from the evaluation metrics
             complete = self._completion(agent_obs)
-            humanness = self._humanness(agent_obs)
             time = self._time(agent_obs)
-            rules = self._rules(agent_obs)
+            humanness = time * self._humanness(agent_obs)
+            rules = time * self._rules(agent_obs)
             goal = self._goal(agent_obs)
 
             self.reward = np.array([complete, humanness, time, rules, goal, np.float64(agent_reward)])
