@@ -90,10 +90,13 @@ def main(args: argparse.Namespace):
     traffic_agent = config["traffic_agent"]
     if traffic_agent == "sumo":
         scenarios = config["sumo_scenarios"]
+        scenarios_eval = scenarios
     elif traffic_agent == "smarts":
         scenarios = config["smarts_scenarios"]
+        scenarios_eval = scenarios
     elif traffic_agent == "itra":
         scenarios = config["itra_scenarios"]
+        scenarios_eval = config["itra_evaluation_scenarios"]
     else:
         raise RuntimeError("Traffic agent type {} is not supported.".format(traffic_agent))
                    
@@ -123,12 +126,12 @@ def main(args: argparse.Namespace):
     #                         seed=42)
 
     envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-                   for scen, seed in zip(scenarios, range(len(scenarios))) ]
+                   for scen, seed in zip(scenarios_eval, range(len(scenarios_eval))) ]
     envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
 
     envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed) 
-                    for scen, seed in zip(scenarios, range(len(scenarios))) ]   
+                    for scen, seed in zip(scenarios_eval, range(len(scenarios_eval))) ]   
     envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
     envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
 
@@ -280,9 +283,9 @@ if __name__ == "__main__":
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        default="",
+        # default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
-        # default="/home/yuant426/Downloads/PPO_1000000_steps (1).zip",
+        default="/home/yuant426/Downloads/PPO_640000_steps.zip",
     )
     parser.add_argument(
         "--w0",
@@ -324,7 +327,7 @@ if __name__ == "__main__":
         "--traffic_agent",
         help="Pick traffic agent from sumo, smarts zoo, and itra",
         type=str,
-        default= "sumo"
+        default= "itra"
     )
 
 

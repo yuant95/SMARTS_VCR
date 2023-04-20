@@ -51,7 +51,7 @@ class invertedAiBoidAgent(Agent):
                         agent_states=agent_states, 
                         agent_attributes=agent_attributes, 
                         recurrent_states=recurrent_states,
-                        get_birdview=True)
+                        get_birdview=False)
                 except Exception as e:
                     if i < tries - 1: # i is zero indexed
                         print("Exception raised from iai.api.drive： {}".format(str(e)))
@@ -65,14 +65,14 @@ class invertedAiBoidAgent(Agent):
             
             # Code for export birdview for debugging
 
-            image = res.birdview.decode()
-            folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
-            time_stamp = int(time.time())
-            from moviepy.editor import ImageClip
-            with ImageClip(image) as image_clip:
-                image_clip.save_frame(
-                    f"{folder}/video_{time_stamp}.jpeg"
-                )
+            # image = res.birdview.decode()
+            # folder = "/home/yuant426/miniconda3/envs/smartsEnvTest/lib/python3.8/site-packages/videos/iai"
+            # time_stamp = int(time.time())
+            # from moviepy.editor import ImageClip
+            # with ImageClip(image) as image_clip:
+            #     image_clip.save_frame(
+            #         f"{folder}/video_{time_stamp}.jpeg"
+            #     )
             
             # fig, ax = plt.subplots(constrained_layout=True, figsize=(5, 5))
             # ax.set_axis_off(), ax.imshow(birdview)

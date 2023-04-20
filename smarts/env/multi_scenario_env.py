@@ -282,26 +282,6 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
-    elif scenario == "3lane_cruise_single_agent_itra":
-        return {
-            "scenario": str(
-                pathlib.Path(__file__).absolute().parents[1]
-                / "scenarios"
-                / "straight"
-                / "3lane_cruise_single_agent_itra"
-            ),
-            "num_agent": 1,
-        }
-    elif scenario == "3lane_cruise_single_agent_itra_batch":
-        return {
-            "scenario": str(
-                pathlib.Path(__file__).absolute().parents[1]
-                / "scenarios"
-                / "straight"
-                / "3lane_cruise_single_agent_itra_batch"
-            ),
-            "num_agent": 1,
-        }
     elif scenario == "3lane_cruise_single_agent_social":
         return {
             "scenario": str(
@@ -312,16 +292,6 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
-    elif scenario == "1_to_2lane_left_turn_t_itra":
-        return {
-            "scenario": str(
-                pathlib.Path(__file__).absolute().parents[1]
-                / "scenarios"
-                / "intersection"
-                / "1_to_2lane_left_turn_t_itra"
-            ),
-            "num_agent": 1,
-        }
     elif scenario == "1_to_2lane_left_turn_t_social":
         return {
             "scenario": str(
@@ -329,16 +299,6 @@ def _get_env_specs(scenario: str):
                 / "scenarios"
                 / "intersection"
                 / "1_to_2lane_left_turn_t_social"
-            ),
-            "num_agent": 1,
-        }
-    elif scenario == "1_to_2lane_left_turn_c_itra":
-        return {
-            "scenario": str(
-                pathlib.Path(__file__).absolute().parents[1]
-                / "scenarios"
-                / "intersection"
-                / "1_to_2lane_left_turn_c_itra"
             ),
             "num_agent": 1,
         }
@@ -372,6 +332,46 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
+    elif scenario == "3lane_cruise_single_agent_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "straight"
+                / "3lane_cruise_single_agent_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "3lane_cruise_single_agent_itra_batch":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "straight"
+                / "3lane_cruise_single_agent_itra_batch"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "1_to_2lane_left_turn_t_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_2lane_left_turn_t_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "1_to_2lane_left_turn_c_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_2lane_left_turn_c_itra"
+            ),
+            "num_agent": 1,
+        }
     elif scenario == "1_to_1lane_left_turn_c_itra":
         return {
             "scenario": str(
@@ -398,6 +398,66 @@ def _get_env_specs(scenario: str):
                 pathlib.Path(__file__).absolute().parents[1]
                 / "scenarios"
                 / "merge"
+                / "3lane_single_agent_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "eval_3lane_cruise_single_agent_itra_batch":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "evaluation"
+                / "3lane_cruise_single_agent_itra_batch"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "eval_1_to_2lane_left_turn_t_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "evaluation"
+                / "1_to_2lane_left_turn_t_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "eval_1_to_2lane_left_turn_c_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "evaluation"
+                / "1_to_2lane_left_turn_c_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "eval_1_to_1lane_left_turn_c_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "evaluation"
+                / "1_to_1lane_left_turn_c_itra"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "eval_1_to_1lane_left_turn_c_itra_stop":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "evaluation"
+                / "1_to_1lane_left_turn_c_itra_stop"
+            ),
+            "num_agent": 1,
+        }
+    elif scenario == "eval_3lane_single_agent_itra":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "evaluation"
                 / "3lane_single_agent_itra"
             ),
             "num_agent": 1,
