@@ -283,9 +283,9 @@ if __name__ == "__main__":
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        # default="",
+        default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
-        default="/home/yuant426/Downloads/PPO_640000_steps.zip",
+        # default="/home/yuant426/Downloads/PPO_640000_steps.zip",
     )
     parser.add_argument(
         "--w0",
