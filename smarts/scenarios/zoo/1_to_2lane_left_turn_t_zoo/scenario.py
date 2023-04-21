@@ -77,7 +77,7 @@ for name, routes in enumerate(route_comb):
         ]
     )
 
-agent_prefabs = "smarts.scenarios.intersection.1_to_2lane_left_turn_t_itra.agent_prefabs"
+agent_prefabs = "smarts.scenarios.zoo.agent_prefabs"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",
@@ -104,8 +104,7 @@ bubbles = [
     t.Bubble(
         zone=t.PositionalZone(pos=(50, 40), size=(120, 120)),
         margin=5,
-        actor=invertedai_boid_agent,
-        keep_alive=True
+        actor=zoo_agent_actor
     ),
 ]
 

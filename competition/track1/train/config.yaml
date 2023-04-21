@@ -12,15 +12,17 @@ smarts:
     - "3lane_merge_single_agent"
     - "3lane_overtake"
     - "1_to_1lane_left_turn_c"
-
     - "1_to_2lane_left_turn_c"
     - "1_to_2lane_left_turn_t"
 
-  smarts_scenarios:
+  smarts_zoo_scenarios:
 # SMARTS ZOO Training
 
-    - "3lane_cruise_single_agent_social"
-    - "1_to_2lane_left_turn_t_social"
+    - "3lane_cruise_single_agent_zoo"
+    - "3lane_single_agent_zoo"
+    - "1_to_1lane_left_turn_c_zoo"
+    - "1_to_2lane_left_turn_c_zoo"
+    - "1_to_2lane_left_turn_t_zoo"
   
   itra_scenarios:
 # ITRA Training 

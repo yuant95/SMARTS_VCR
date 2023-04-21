@@ -30,58 +30,63 @@ normal = TrafficActor(
     name="car",
 )
 
-# flow_name = (start_lane, end_lane)
-route_opt = [
-    (0, 0),
-    (1, 1),
-    (2, 2),
+horizontal_routes = [
+    ("E4", 0, "E1", 0),
+    ("E4", 1, "E1", 1),
+    ("-E1", 0, "-E4", 0),
+    ("-E1", 1, "-E4", 1),
 ]
 
-# Traffic combinations = 3C2 + 3C3 = 3 + 1 = 4
-# Repeated traffic combinations = 4 * 100 = 400
-min_flows = 2
-max_flows = 3
-route_comb = [
-    com
-    for elems in range(min_flows, max_flows + 1)
-    for com in combinations(route_opt, elems)
-] * 100
+turn_left_routes = [
+    ("E0", 0, "E1", 1),
+    ("E4", 1, "-E0", 0),
+]
 
+turn_right_routes = [
+    ("E0", 0, "-E4", 0),
+    ("-E1", 0, "-E0", 0),
+]
+
+# Total route combinations = 8C1 + 8C2 + 8C3 + 8C4 + 8C5 = 218
+# Repeated route combinations = 218 * 2 = 436
+all_routes = horizontal_routes + turn_left_routes + turn_right_routes
+route_comb = [
+    com for elems in range(1, 6) for com in combinations(all_routes, elems)
+] * 2
 traffic = {}
 for name, routes in enumerate(route_comb):
     traffic[str(name)] = Traffic(
         flows=[
             Flow(
                 route=Route(
-                    begin=("gneE3", start_lane, 0),
-                    end=("gneE4", end_lane, "max"),
+                    begin=(start_edge, start_lane, 0),
+                    end=(end_edge, end_lane, "max"),
                 ),
                 # Random flow rate, between x and y vehicles per minute.
-                rate=60 * random.uniform(10, 20),
+                rate=60 * random.uniform(5, 15),
                 # Random flow start time, between x and y seconds.
-                begin=random.uniform(0, 5),
+                begin=random.uniform(0, 3),
                 # For an episode with maximum_episode_steps=3000 and step
                 # time=0.1s, the maximum episode time=300s. Hence, traffic is
                 # set to end at 900s, which is greater than maximum episode
                 # time of 300s.
                 end=60 * 15,
                 actors={normal: 1},
-                randomly_spaced=True,
             )
-            for start_lane, end_lane in routes
+            for start_edge, start_lane, end_edge, end_lane in routes
         ]
     )
 
-agent_prefabs = "smarts.scenarios.merge.3lane_multi_agent_itra.agent_prefabs"
+agent_prefabs = "smarts.scenarios.itra.1_to_2lane_left_turn_t_itra.agent_prefabs"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",
     agent_locator=f"{agent_prefabs}:inverted-boid-agent-v0",
 )
 
-motion_planner_actor = t.SocialAgentActor(
-    name="motion-planner-agent",
-    agent_locator=f"{agent_prefabs}:motion-planner-agent-v0",
+invertedai_agent_actor = t.SocialAgentActor(
+    name="invertedai-agent",
+    agent_locator=f"{agent_prefabs}:inverted-agent-v0",
 )
 
 zoo_agent_actor = t.SocialAgentActor(
@@ -90,17 +95,42 @@ zoo_agent_actor = t.SocialAgentActor(
 )
 
 bubbles = [
+    # t.Bubble(
+    #     zone=t.MapZone(start=("E0", 0, 5), length=2, n_lanes=1),
+    #     margin=2,
+    #     actor=invertedai_boid_agent,
+    #     keep_alive=True, 
+    # ),
     t.Bubble(
-        zone=t.PositionalZone(pos=(100, 20), size=(240, 120)),
+        zone=t.PositionalZone(pos=(50, 40), size=(120, 120)),
         margin=5,
         actor=invertedai_boid_agent,
-        keep_alive=True,
+        keep_alive=True
     ),
 ]
 
+social_agent_missions = {
+    "all": (
+        [
+            t.SocialAgentActor(
+                name="keep-lane-agent-v0",
+                agent_locator="zoo.policies:keep-lane-agent-v0",
+            ),
+        ],
+        [
+            t.Mission(
+                t.Route(begin=("E0", 0, 5), end=("E1", 0, "max"))
+            )
+        ],
+    ),
+}
+
+route = Route(begin=("E0", 0, 5), end=("E1", 0, "max"))
 ego_missions = [
-    Mission(Route(begin=("gneE6", 0, 10), end=("gneE4", 2, "max")), start_time=15),
-    Mission(Route(begin=("gneE3", 0, 10), end=("gneE4", 0, "max")), start_time=15),
+    Mission(
+        route=route,
+        start_time=4,  # Delayed start, to ensure road has prior traffic.
+    )
 ]
 
 gen_scenario(
@@ -108,6 +138,7 @@ gen_scenario(
         traffic=traffic,
         ego_missions=ego_missions,
         bubbles=bubbles,
+        # social_agent_missions=social_agent_missions,
     ),
     output_dir=Path(__file__).parent,
 )

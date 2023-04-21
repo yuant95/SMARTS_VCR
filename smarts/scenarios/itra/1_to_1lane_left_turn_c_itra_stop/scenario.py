@@ -90,7 +90,7 @@ for name, routes in enumerate(route_comb):
         ]
     )
 
-agent_prefabs = "smarts.scenarios.intersection.1_to_1lane_left_turn_c_itra.agent_prefabs"
+agent_prefabs = "smarts.scenarios.itra.1_to_1lane_left_turn_c_itra.agent_prefabs"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",

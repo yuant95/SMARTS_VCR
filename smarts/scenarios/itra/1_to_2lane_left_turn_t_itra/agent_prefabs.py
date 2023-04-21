@@ -51,7 +51,7 @@ class invertedAiBoidAgent(Agent):
                         agent_states=agent_states, 
                         agent_attributes=agent_attributes, 
                         recurrent_states=recurrent_states,
-                        get_birdview=True)
+                        get_birdview=False)
                 except Exception as e:
                     if i < tries - 1: # i is zero indexed
                         print("Exception raised from iai.api.drive： {}".format(str(e)))

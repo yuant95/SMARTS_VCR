@@ -22,66 +22,84 @@ import random
 from itertools import combinations
 from pathlib import Path
 
-from smarts.sstudio import gen_scenario
-from smarts.sstudio.types import Flow, Mission, Route, Scenario, Traffic, TrafficActor
+from smarts.sstudio.genscenario import gen_scenario
+from smarts.sstudio.types import (
+    Flow,
+    MapZone,
+    Mission,
+    Route,
+    Scenario,
+    Traffic,
+    TrafficActor,
+    TrapEntryTactic,
+)
 from smarts.sstudio import types as t
 
-normal = TrafficActor(
+intersection_car = TrafficActor(
     name="car",
 )
 
-# flow_name = (start_lane, end_lane)
-route_opt = [
-    (0, 0),
-    (1, 1),
-    (2, 2),
+vertical_routes = [
+    ("north-NS", "south-NS"),
+    ("south-SN", "north-SN"),
 ]
 
-# Traffic combinations = 3C2 + 3C3 = 3 + 1 = 4
-# Repeated traffic combinations = 4 * 100 = 400
-min_flows = 2
-max_flows = 3
-route_comb = [
-    com
-    for elems in range(min_flows, max_flows + 1)
-    for com in combinations(route_opt, elems)
-] * 100
+horizontal_routes = [
+    ("west-WE", "east-WE"),
+    ("east-EW", "west-EW"),
+]
 
+turn_left_routes = [
+    ("south-SN", "west-EW"),
+    ("west-WE", "north-SN"),
+    ("north-NS", "east-WE"),
+    ("east-EW", "south-NS"),
+]
+
+turn_right_routes = [
+    ("south-SN", "east-WE"),
+    ("west-WE", "south-NS"),
+    ("north-NS", "west-EW"),
+    ("east-EW", "north-SN"),
+]
+
+# Total route combinations = 12C1 + 12C2 + 12C3 + 12C4 = 793
+all_routes = vertical_routes + horizontal_routes + turn_left_routes + turn_right_routes
+route_comb = [com for elems in range(1, 5) for com in combinations(all_routes, elems)]
 traffic = {}
 for name, routes in enumerate(route_comb):
     traffic[str(name)] = Traffic(
         flows=[
             Flow(
                 route=Route(
-                    begin=("gneE3", start_lane, 0),
-                    end=("gneE4", end_lane, "max"),
+                    begin=(f"edge-{r[0]}", 0, 0),
+                    end=(f"edge-{r[1]}", 0, "max"),
                 ),
-                # Random flow rate, between x and y vehicles per minute.
-                rate=60 * random.uniform(10, 25),
-                # Random flow start time, between x and y seconds.
+                # Random flow rate, between 3 and 5 vehicles per minute.
+                rate=60 * random.uniform(5, 15),
+                # Random flow start time, between 0 and 10 seconds.
                 begin=random.uniform(0, 5),
                 # For an episode with maximum_episode_steps=3000 and step
                 # time=0.1s, the maximum episode time=300s. Hence, traffic is
                 # set to end at 900s, which is greater than maximum episode
                 # time of 300s.
                 end=60 * 15,
-                actors={normal: 1},
-                randomly_spaced=True,
+                actors={intersection_car: 1},
             )
-            for start_lane, end_lane in routes
+            for r in routes
         ]
     )
 
-agent_prefabs = "smarts.scenarios.merge.3lane_single_agent_itra.agent_prefabs"
+agent_prefabs = "smarts.scenarios.itra.1_to_1lane_left_turn_c_itra.agent_prefabs"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",
     agent_locator=f"{agent_prefabs}:inverted-boid-agent-v0",
 )
 
-motion_planner_actor = t.SocialAgentActor(
-    name="motion-planner-agent",
-    agent_locator=f"{agent_prefabs}:motion-planner-agent-v0",
+invertedai_agent_actor = t.SocialAgentActor(
+    name="invertedai-agent",
+    agent_locator=f"{agent_prefabs}:inverted-agent-v0",
 )
 
 zoo_agent_actor = t.SocialAgentActor(
@@ -97,26 +115,40 @@ bubbles = [
     #     keep_alive=True, 
     # ),
     t.Bubble(
-        zone=t.PositionalZone(pos=(100, 20), size=(240, 120)),
+        zone=t.PositionalZone(pos=(0, 0), size=(240, 120)),
         margin=5,
         actor=invertedai_boid_agent,
-        keep_alive=True,
+        keep_alive=True
     ),
 ]
 
-route = Route(begin=("gneE6", 0, 10), end=("gneE4", 2, "max"))
+route = Route(begin=("edge-west-WE", 0, 60), end=("edge-north-SN", 0, 40))
 ego_missions = [
     Mission(
         route=route,
-        start_time=15,  # Delayed start, to ensure road has prior traffic.
-    )
+        start_time=10,  # Delayed start, to ensure road has prior traffic.
+        entry_tactic=TrapEntryTactic(
+            wait_to_hijack_limit_s=1,
+            zone=MapZone(
+                start=(
+                    route.begin[0],
+                    route.begin[1],
+                    route.begin[2] - 5,
+                ),
+                length=10,
+                n_lanes=1,
+            ),
+            default_entry_speed=5,
+        ),
+    ),
 ]
 
+scnr_path = Path(__file__).parent
 gen_scenario(
     scenario=Scenario(
         traffic=traffic,
         ego_missions=ego_missions,
         bubbles=bubbles,
     ),
-    output_dir=Path(__file__).parent,
+    output_dir=scnr_path,
 )

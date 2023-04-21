@@ -91,8 +91,8 @@ def main(args: argparse.Namespace):
     if traffic_agent == "sumo":
         scenarios = config["sumo_scenarios"]
         scenarios_eval = scenarios
-    elif traffic_agent == "smarts":
-        scenarios = config["smarts_scenarios"]
+    elif traffic_agent == "zoo":
+        scenarios = config["smarts_zoo_scenarios"]
         scenarios_eval = scenarios
     elif traffic_agent == "itra":
         scenarios = config["itra_scenarios"]
@@ -285,7 +285,7 @@ if __name__ == "__main__":
         type=str,
         default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
-        # default="/home/yuant426/Downloads/PPO_640000_steps.zip",
+        # default="/home/yuant426/Downloads/PPO_960000_steps.zip",
     )
     parser.add_argument(
         "--w0",
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         "--traffic_agent",
         help="Pick traffic agent from sumo, smarts zoo, and itra",
         type=str,
-        default= "itra"
+        default= "zoo"
     )
 
 
