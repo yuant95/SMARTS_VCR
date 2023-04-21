@@ -6,7 +6,6 @@ from smarts.core.controllers import ActionSpaceType
 from smarts.zoo.agent_spec import AgentSpec
 from smarts.zoo.registry import register
 
-import invertedai as iai
 from invertedai.common import RecurrentState
 
 class KeepLaneAgent(Agent):

@@ -103,7 +103,7 @@ class GifRecorder:
             with ImageSequenceClip(self.iai_frame_folder, fps=fps) as clip:
                 clip.write_gif(video_path)
             clip.close()
-            wandb.log({"video":wandb.Video(video_path, fps=fps, format="gif", caption=f"{self.count}_iai")})
+            wandb.log({"video":wandb.Video(video_path, fps=fps, format="gif", caption=video_path)})
         
         self.count += 1
 
