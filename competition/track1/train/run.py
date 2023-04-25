@@ -253,7 +253,7 @@ if __name__ == "__main__":
         "--checkpoint_freq",
         help="Save a model every checkpoint_freq calls to env.step().",
         type=int,
-        default=5_000,
+        default=3_000,
     )
     parser.add_argument(
         "--eval_eps",
@@ -265,7 +265,7 @@ if __name__ == "__main__":
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=2_000,
+        default=3_000,
     )
     parser.add_argument(
         "--alg",
@@ -285,7 +285,8 @@ if __name__ == "__main__":
         type=str,
         default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
-        # default="/home/yuant426/Downloads/PPO_960000_steps.zip",
+        # default="/home/yuant426/Downloads/PPO_240000_steps.zip",
+        # default="/ubc/cs/research/plai-scratch/smarts/baselines/PPO_240000_steps.zip"
     )
     parser.add_argument(
         "--w0",

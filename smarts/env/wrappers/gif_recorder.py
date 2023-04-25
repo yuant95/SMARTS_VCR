@@ -96,16 +96,16 @@ class GifRecorder:
         with ImageSequenceClip(self.frame_folder, fps=fps) as clip:
             clip.write_gif(video_path)
         clip.close()
-        wandb.log({"video":wandb.Video(video_path, fps=fps, format="gif", caption=caption)})
+        wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=timestamp_str)})
 
         #DEBUG for IAI
         if self.traffic_agent == "itra":
-            caption = f"{self.scenarios_name}_iai.gif"
+            # caption = f"{self.scenarios_name}_iai.gif"
             video_path = f"{self._video_root_path}/{self._video_name}_{self.scenarios_name}_{timestamp_str}_iai.gif"
             with ImageSequenceClip(self.iai_frame_folder, fps=fps) as clip:
                 clip.write_gif(video_path)
             clip.close()
-            wandb.log({"video":wandb.Video(video_path, fps=fps, format="gif", caption=caption)})
+            wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=f"{timestamp_str}_iai")})
         
         self.count += 1
 
