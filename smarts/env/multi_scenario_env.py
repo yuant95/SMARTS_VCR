@@ -343,7 +343,7 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
-    elif tokens[-1] == "itra":
+    elif tokens[-1] == "itra" or tokens[-2] == "itra":
         return {
             "scenario": str(
                 pathlib.Path(__file__).absolute().parents[1]

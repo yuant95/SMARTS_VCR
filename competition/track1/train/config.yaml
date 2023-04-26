@@ -27,7 +27,7 @@ smarts:
   itra_scenarios:
 # ITRA Training 
 
-    - "3lane_cruise_single_agent_itra_batch"
+    - "3lane_cruise_single_agent_itra"
     - "3lane_single_agent_itra"
     - "1_to_1lane_left_turn_c_itra"
     - "1_to_1lane_left_turn_c_itra_stop"
@@ -35,7 +35,7 @@ smarts:
     - "1_to_2lane_left_turn_t_itra"
 
   itra_evaluation_scenarios:
-  # ITRA Evaluation
+  # # ITRA Evaluation
     - "eval_3lane_cruise_single_agent_itra_batch"
     - "eval_3lane_single_agent_itra"
     - "eval_1_to_1lane_left_turn_c_itra"

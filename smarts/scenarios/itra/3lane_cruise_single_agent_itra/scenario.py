@@ -73,7 +73,7 @@ for name, routes in enumerate(route_comb):
     )
 
 
-agent_prefabs = "smarts.scenarios.itra.3lane_cruise_single_agent_itra_batch.agent_prefabs"
+agent_prefabs = "smarts.scenarios.itra.3lane_cruise_single_agent_itra.agent_prefabs"
 
 # motion_planner_actor = t.SocialAgentActor(
 #     name="motion-planner-agent",

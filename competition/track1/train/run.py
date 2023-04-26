@@ -126,7 +126,7 @@ def main(args: argparse.Namespace):
     #                         seed=42)
 
     envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
-                   for scen, seed in zip(scenarios_eval, range(len(scenarios_eval))) ]
+                   for scen, seed in zip(scenarios, range(len(scenarios))) ]
     envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
 
@@ -283,9 +283,9 @@ if __name__ == "__main__":
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        default="",
+        # default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
-        # default="/home/yuant426/Downloads/PPO_240000_steps.zip",
+        default="/home/yuant426/Downloads/PPO_270000_steps.zip",
         # default="/ubc/cs/research/plai-scratch/smarts/baselines/PPO_240000_steps.zip"
     )
     parser.add_argument(
