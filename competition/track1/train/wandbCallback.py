@@ -98,7 +98,6 @@ class CustomCallback(BaseCallback):
             'time_steps': self.num_timesteps,
             'updates': self.model._n_updates}, **episode_infos))
 
-
     def _on_rollout_start(self) -> None:
         """
         A rollout is the collection of environment interaction

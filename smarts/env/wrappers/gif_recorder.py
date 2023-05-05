@@ -89,25 +89,29 @@ class GifRecorder:
         """
         Use the images in the same folder to create a gif file.
         """
-        fps=4
-        timestamp_str = time.strftime("%Y%m%d-%H%M%S")
-        caption = f"{self.scenarios_name}.gif"
-        video_path = f"{self._video_root_path}/{self._video_name}_{self.scenarios_name}_{timestamp_str}.gif"
-        with ImageSequenceClip(self.frame_folder, fps=fps) as clip:
-            clip.write_gif(video_path)
-        clip.close()
-        wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=timestamp_str)})
-
-        #DEBUG for IAI
-        if self.traffic_agent == "itra":
-            # caption = f"{self.scenarios_name}_iai.gif"
-            video_path = f"{self._video_root_path}/{self._video_name}_{self.scenarios_name}_{timestamp_str}_iai.gif"
-            with ImageSequenceClip(self.iai_frame_folder, fps=fps) as clip:
+        try:
+            fps=4
+            timestamp_str = time.strftime("%Y%m%d-%H%M%S")
+            caption = f"{self.scenarios_name}.gif"
+            video_path = f"{self._video_root_path}/{self._video_name}_{self.scenarios_name}_{timestamp_str}.gif"
+            with ImageSequenceClip(self.frame_folder, fps=fps) as clip:
                 clip.write_gif(video_path)
             clip.close()
-            wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=f"{timestamp_str}_iai")})
-        
-        self.count += 1
+            wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=timestamp_str)})
+
+            #DEBUG for IAI
+            if self.traffic_agent == "itra":
+                # caption = f"{self.scenarios_name}_iai.gif"
+                video_path = f"{self._video_root_path}/{self._video_name}_{self.scenarios_name}_{timestamp_str}_iai.gif"
+                with ImageSequenceClip(self.iai_frame_folder, fps=fps) as clip:
+                    clip.write_gif(video_path)
+                clip.close()
+                wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=f"{timestamp_str}_iai")})
+            
+            self.count += 1
+            
+        except Exception as e:
+            print("Something went wrong while generating gif: {}".format(str(e)))
 
     def close_recorder(self):
         """

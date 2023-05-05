@@ -19,7 +19,7 @@ import torch as th
 
 from ruamel.yaml import YAML
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.evaluation import evaluate_policy, evaluate_policy_details
 from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env, VecMonitor 
 from train import env as multi_scenario_env
 from train import network
@@ -157,12 +157,6 @@ def run(
             model = sb3lib.PPO.load(config["baseline"], 
                                     env=envs_train, verbose=1, 
                                     tensorboard_log=config["logdir"] + "/tensorboard")
-        # for index in range(config["epochs"]):
-            # checkpoint_callback = CheckpointCallback(
-            #     save_freq=config["checkpoint_freq"],
-            #     save_path=config["logdir"] + "/checkpoint",
-            #     name_prefix=f"{config['alg']}_{index}",
-            # )
             
         else:
             model = getattr(sb3lib, config["alg"])(
@@ -207,12 +201,10 @@ def run(
         model = getattr(sb3lib, config["alg"]).load(
             config["model"], print_system_info=True
         )
-        for env_name, env_eval in envs_eval.items():
-            print(f"\nEvaluating env {env_name}.")
-            mean_reward, std_reward = evaluate_policy(
-                model, env_eval, n_eval_episodes=config["eval_eps"], deterministic=True
-            )
-            print(f"Mean reward:{mean_reward:.2f} +/- {std_reward:.2f}\n")
+
+        episode_rewards, episode_lengths, episode_infos = evaluate_policy_details(
+            model, envs_eval, n_eval_episodes=config["eval_eps"], deterministic=True, return_episode_rewards=True,
+        )
         print("\nFinished evaluating.\n")
 
 
@@ -235,7 +227,9 @@ if __name__ == "__main__":
         "--model",
         help="Directory path to saved RL model. Required if `--mode=evaluate`.",
         type=str,
-        default=None,
+        # default="/home/yuant426/Downloads/hearty-oath-1223_ITRA.zip",
+        # default="/home/yuant426/Downloads/smooth-shape-1230_ZOO.zip",
+        # default="/home/yuant426/Downloads/restful-valley-1171_SUMO.zip",
     )
     # parser.add_argument(
     #     "--epochs",
@@ -283,9 +277,10 @@ if __name__ == "__main__":
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        # default="",
+        default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
-        default="/home/yuant426/Downloads/PPO_270000_steps.zip",
+        # default="/home/yuant426/Downloads/PPO_870000_steps.zip",
+        # default="/home/yuant426/Downloads/PPO_396000_steps.zip",
         # default="/ubc/cs/research/plai-scratch/smarts/baselines/PPO_240000_steps.zip"
     )
     parser.add_argument(
