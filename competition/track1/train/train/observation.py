@@ -234,7 +234,7 @@ def wps_to_pixels(wps:np.ndarray, ego_pos:np.ndarray, ego_heading:float, w:int, 
     return wps_valid
 
 
-def rotate_axes(points: np.ndarray, theta: np.float) -> np.ndarray:
+def rotate_axes(points: np.ndarray, theta: float) -> np.ndarray:
     """A counterclockwise rotation of the x-y axes by an angle theta θ about
     the z-axis.
 

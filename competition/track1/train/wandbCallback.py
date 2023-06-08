@@ -6,7 +6,7 @@ import os
 
 # add the stable baselines implimentations
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.evaluation import evaluate_policy, evaluate_policy_details, evaluate_policy_visualization
 from stable_baselines3.common.utils import safe_mean
 
 class CustomCallback(BaseCallback):
@@ -75,13 +75,22 @@ class CustomCallback(BaseCallback):
         # Evaluate the model
         # policy = lambda obs_: self.model.predict(obs_, deterministic=True)[0]
         # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env, STATIC_ARGS['tracks_folder'])
-        episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+        # episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+        #     self.model,
+        #     self.eval_env,
+        #     n_eval_episodes=self.n_eval_episodes,
+        #     render=self.render,
+        #     deterministic=self.deterministic,
+        #     return_episode_rewards=True,
+        # )
+        episode_rewards, episode_lengths, episode_infos = evaluate_policy_visualization(
             self.model,
-            self.eval_env,
+            self.eval_env, 
             n_eval_episodes=self.n_eval_episodes,
             render=self.render,
             deterministic=self.deterministic,
             return_episode_rewards=True,
+            meta_data=False
         )
     
         mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
@@ -135,13 +144,22 @@ class CustomCallback(BaseCallback):
             # Evaluate the model
             # policy = lambda obs_: self.model.predict(obs_, deterministic=True)[0]
             # avg_return, avg_horizon, avg_wp = evaluate_policy(policy, self.eval_env, STATIC_ARGS['tracks_folder'])
-            episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+            # episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+            #     self.model,
+            #     self.eval_env,
+            #     n_eval_episodes=self.n_eval_episodes,
+            #     render=self.render,
+            #     deterministic=self.deterministic,
+            #     return_episode_rewards=True,
+            # )
+            episode_rewards, episode_lengths, episode_infos = evaluate_policy_visualization(
                 self.model,
-                self.eval_env,
+                self.eval_env, 
                 n_eval_episodes=self.n_eval_episodes,
                 render=self.render,
                 deterministic=self.deterministic,
                 return_episode_rewards=True,
+                meta_data=False
             )
         
             mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
@@ -210,14 +228,23 @@ class CustomCallback(BaseCallback):
         # return None
 
         # Evaluate the model
-        episode_rewards, episode_lengths, episode_infos = evaluate_policy(
-                self.model,
-                self.eval_env,
-                n_eval_episodes=self.n_eval_episodes,
-                render=self.render,
-                deterministic=self.deterministic,
-                return_episode_rewards=True,
-            )
+        # episode_rewards, episode_lengths, episode_infos = evaluate_policy(
+        #         self.model,
+        #         self.eval_env,
+        #         n_eval_episodes=self.n_eval_episodes,
+        #         render=self.render,
+        #         deterministic=self.deterministic,
+        #         return_episode_rewards=True,
+        #     )
+        episode_rewards, episode_lengths, episode_infos = evaluate_policy_visualization(
+            self.model,
+            self.eval_env, 
+            n_eval_episodes=self.n_eval_episodes,
+            render=self.render,
+            deterministic=self.deterministic,
+            return_episode_rewards=True,
+            meta_data=False
+        )
         
         mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
         mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)

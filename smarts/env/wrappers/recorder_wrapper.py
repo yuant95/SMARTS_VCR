@@ -37,7 +37,6 @@ class RecorderWrapper(gym.Wrapper):
     """
 
     def __init__(self, video_name: str, env: gym.Env, traffic_agent: str):
-
         root_path = Path(__file__).parents[3]  # smarts main repo path
         video_folder = os.path.join(
             root_path, "videos"
@@ -64,10 +63,13 @@ class RecorderWrapper(gym.Wrapper):
             self.start_recording()
         else:
             try:
-                self.gif_recorder.generate_gif()
+                video_paths, fps = self.gif_recorder.generate_gif()
             except Exception as e:
                 print("WARNING: failed to generate gif due to {}".format(str(e)))
-            
+            else:
+                observations["video_paths"] = video_paths
+                observations["fps"] = fps
+
             self.gif_recorder.clear_content()
             
         self.current_frame = 0
@@ -97,6 +99,9 @@ class RecorderWrapper(gym.Wrapper):
         if self.recording == True:
             image = super().render(mode="rgb_array")
             self.gif_recorder.capture_frame(self.next_frame_id(), image)
+
+        observations["video_path"] = ""
+        observations["fps"] = 0
 
         return observations, rewards, dones, infos
 

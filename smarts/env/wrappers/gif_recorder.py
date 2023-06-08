@@ -89,6 +89,7 @@ class GifRecorder:
         """
         Use the images in the same folder to create a gif file.
         """
+        video_paths = []
         try:
             fps=4
             timestamp_str = time.strftime("%Y%m%d-%H%M%S")
@@ -97,7 +98,8 @@ class GifRecorder:
             with ImageSequenceClip(self.frame_folder, fps=fps) as clip:
                 clip.write_gif(video_path)
             clip.close()
-            wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=timestamp_str)})
+            video_paths.append(video_path)
+            # wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=timestamp_str)})
 
             #DEBUG for IAI
             if self.traffic_agent == "itra":
@@ -106,12 +108,15 @@ class GifRecorder:
                 with ImageSequenceClip(self.iai_frame_folder, fps=fps) as clip:
                     clip.write_gif(video_path)
                 clip.close()
-                wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=f"{timestamp_str}_iai")})
+                video_paths.append(video_path)
+                # wandb.log({caption:wandb.Video(video_path, fps=fps, format="gif", caption=f"{timestamp_str}_iai")})
             
             self.count += 1
             
         except Exception as e:
             print("Something went wrong while generating gif: {}".format(str(e)))
+
+        return video_paths, fps
 
     def close_recorder(self):
         """

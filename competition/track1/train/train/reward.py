@@ -116,7 +116,6 @@ class Reward(gym.Wrapper):
     
         return info
 
-
     def _reward(
         self, obs: Dict[str, Dict[str, Any]], env_reward: Dict[str, np.float64]
     ) -> Dict[str, np.float64]:
@@ -166,18 +165,35 @@ class Reward(gym.Wrapper):
         # )
         
         # return self._dist_to_obstacles(agent_obs) - self._jerk_angular(agent_obs) - self._jerk_linear(agent_obs) - self._lane_center_offset(agent_obs)
-    
+        
+        # weights for distance to obstcle, lane center offset, same_steering
+        weights = [0.3, 0.3, 0.4]
+
+
         sigma_dist = 1.5 # second
-        dist_to_obs = 0.5 * np.tanh(self._dist_to_obstacles(agent_obs) / sigma_dist)
+        dist_to_obs = weights[0] * np.tanh(self._dist_to_obstacles(agent_obs) / sigma_dist)
         sigma_center = 0.1 # percentage
-        lane_center_offset = 0.5 * np.exp(- self._lane_center_offset(agent_obs)/ (2*sigma_center))
+        lane_center_offset = weights[1] * np.exp(- self._lane_center_offset(agent_obs)/ (2*sigma_center))
+
+        # Reward for not change the steering angle 
+        current_ego_heading = agent_obs["ego"]["heading"]
+        prev_ego_heading = agent_obs["history"][1]["ego"]["heading"]
+        pprev_ego_heading = agent_obs["history"][2]["ego"]["heading"]
+
+        prev_change_heading = prev_ego_heading - pprev_ego_heading
+        current_change_heading = current_ego_heading - prev_ego_heading
+
+        if abs(current_change_heading-prev_change_heading) < 1.5 / 180.0 * np.pi:
+            same_steering = weights[2]
+        else:
+            same_steering = 0.0
 
         # If not moving, then humanness is 0
         not_moving = agent_obs["events"]["not_moving"]
         if not_moving:
             return 0.0
         
-        return dist_to_obs+lane_center_offset
+        return dist_to_obs+lane_center_offset+same_steering
         
     # Only consider wrong way for now
     def _rules(
@@ -186,10 +202,10 @@ class Reward(gym.Wrapper):
         score = np.float64(1.0)
         if agent_obs["events"]["wrong_way"]:
             print(f"Wrong way.")
-            score -= np.float64(0.8)
+            score -= np.float64(0.7)
         if agent_obs["events"]["on_shoulder"]:
             print(f"On shoulder.")
-            score -= np.float64(0.2)
+            score -= np.float64(0.3)
 
         # score -= self._speed_limit(agent_obs)
 

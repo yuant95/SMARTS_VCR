@@ -67,6 +67,9 @@ turn_right_routes = [
 all_routes = vertical_routes + horizontal_routes + turn_left_routes + turn_right_routes
 route_comb = [com for elems in range(1, 5) for com in combinations(all_routes, elems)]
 traffic = {}
+
+scale = 1.55
+
 for name, routes in enumerate(route_comb):
     traffic[str(name)] = Traffic(
         flows=[
@@ -76,7 +79,7 @@ for name, routes in enumerate(route_comb):
                     end=(f"edge-{r[1]}", 0, "max"),
                 ),
                 # Random flow rate, between 3 and 5 vehicles per minute.
-                rate=60 * random.uniform(5, 15),
+                rate=60 * random.uniform(int(5*scale), int(15*scale)),
                 # Random flow start time, between 0 and 10 seconds.
                 begin=random.uniform(0, 5),
                 # For an episode with maximum_episode_steps=3000 and step

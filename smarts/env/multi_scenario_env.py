@@ -222,6 +222,16 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 1,
         }
+    elif scenario == "1_to_2lane_right_turn_c":
+        return {
+            "scenario": str(
+                pathlib.Path(__file__).absolute().parents[1]
+                / "scenarios"
+                / "intersection"
+                / "1_to_2lane_right_turn_c"
+            ),
+            "num_agent": 1,
+        }
     elif scenario == "1_to_2lane_left_turn_t":
         return {
             "scenario": str(
@@ -397,7 +407,7 @@ def resolve_agent_interface(
         not_moving=False,
         agents_alive=None,
     )
-    max_episode_steps = 800
+    max_episode_steps = 400
     road_waypoint_horizon = 50
     waypoints_lookahead = 50
     return AgentInterface(

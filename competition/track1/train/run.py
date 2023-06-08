@@ -19,7 +19,7 @@ import torch as th
 
 from ruamel.yaml import YAML
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.evaluation import evaluate_policy, evaluate_policy_details
+from stable_baselines3.common.evaluation import evaluate_policy, evaluate_policy_details, evaluate_policy_visualization
 from stable_baselines3.common.vec_env import dummy_vec_env, subproc_vec_env, VecMonitor 
 from train import env as multi_scenario_env
 from train import network
@@ -75,9 +75,13 @@ def main(args: argparse.Namespace):
         # Begin evaluation.
         config["model"] = args.model
         print("\nModel:", config["model"], "\n")
-    elif config["mode"] == "train" and not args.model:
-        # Begin training.
-        pass
+    elif config["mode"] == "train":
+        if not args.model:
+            # Begin training.
+            pass
+        else:
+            raise KeyError(f'Expected no model, but got {args.model}.')
+
     else:
         raise KeyError(f'Expected \'train\' or \'evaluate\', but got {config["mode"]}.')
 
@@ -130,10 +134,11 @@ def main(args: argparse.Namespace):
     envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
 
-    envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed) 
+    # Initialize evaluation with different random seed
+    envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed*2) 
                     for scen, seed in zip(scenarios_eval, range(len(scenarios_eval))) ]   
-    envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
-    envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
+    # envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
+    # envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
 
 
     # Run training or evaluation.
@@ -141,7 +146,7 @@ def main(args: argparse.Namespace):
 
     # Close all environments
     envs_train.close()
-    envs_eval.close()
+    # envs_eval.close()
 
 
 def run(
@@ -151,6 +156,9 @@ def run(
     wandb_run
 ):
     if config["mode"] == "train":
+        # envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
+        # envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
+
         print("\nStart training.\n")
         if config["baseline"]:
             # model.load(config["baseline"])
@@ -202,8 +210,13 @@ def run(
             config["model"], print_system_info=True
         )
 
-        episode_rewards, episode_lengths, episode_infos = evaluate_policy_details(
-            model, envs_eval, n_eval_episodes=config["eval_eps"], deterministic=True, return_episode_rewards=True,
+        episode_rewards, episode_lengths, episode_infos = evaluate_policy_visualization(
+            model, 
+            envs_eval, 
+            n_eval_episodes=config["eval_eps"], 
+            deterministic=True, 
+            return_episode_rewards=True,
+            meta_data=True
         )
         print("\nFinished evaluating.\n")
 
@@ -227,9 +240,12 @@ if __name__ == "__main__":
         "--model",
         help="Directory path to saved RL model. Required if `--mode=evaluate`.",
         type=str,
-        # default="/home/yuant426/Downloads/hearty-oath-1223_ITRA.zip",
-        # default="/home/yuant426/Downloads/smooth-shape-1230_ZOO.zip",
-        # default="/home/yuant426/Downloads/restful-valley-1171_SUMO.zip",
+        # default="",
+        # default="/home/yuant426/Downloads/PPO_990000_steps_smooth-rain-1288.zip",
+        # default="/home/yuant426/Downloads/dandy-deluge-1257_PPO_450000_steps.zip",
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_06_06_14_17_37/checkpoint/PPO_1350000_steps.zip",
+        # default="/home/yuant426/Downloads/fragrant-valley-1327_PPO_1680000_steps.zip"
+        # default="/home/yuant426/Downloads/super-frog-1366-PPO_990000_steps.zip"
     )
     # parser.add_argument(
     #     "--epochs",
@@ -241,13 +257,13 @@ if __name__ == "__main__":
         "--train_steps",
         help="Total training step",
         type=int,
-        default=1_000_000,
+        default=4_000_000,
     )
     parser.add_argument(
         "--checkpoint_freq",
         help="Save a model every checkpoint_freq calls to env.step().",
         type=int,
-        default=3_000,
+        default=10_000,
     )
     parser.add_argument(
         "--eval_eps",
@@ -259,7 +275,7 @@ if __name__ == "__main__":
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=3_000,
+        default=10_000,
     )
     parser.add_argument(
         "--alg",
@@ -271,17 +287,18 @@ if __name__ == "__main__":
         "--action_wrapper",
         help="Choose from discrete and continous",
         type=str,
-        default="discrete",
+        default="discrete11",
     )
     parser.add_argument(
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        default="",
+        # default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
-        # default="/home/yuant426/Downloads/PPO_870000_steps.zip",
-        # default="/home/yuant426/Downloads/PPO_396000_steps.zip",
+        # default="/home/yuant426/Downloads/PPO_990000_steps_smooth-rain-1288.zip",
         # default="/ubc/cs/research/plai-scratch/smarts/baselines/PPO_240000_steps.zip"
+        # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_05_24_00_12_45/checkpoint/PPO_990000_steps.zip",
+        # default="/home/yuant426/Downloads/super-frog-1366-PPO_990000_steps.zip"
     )
     parser.add_argument(
         "--w0",

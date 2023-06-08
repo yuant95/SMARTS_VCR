@@ -49,15 +49,19 @@ class HistoryStack(gym.Wrapper):
             key: deque(maxlen=self._num_stack) for key in self.env.agent_specs.keys()
         }
 
-    def _get_observations(self, obs: Dict[str, Any]) -> Dict[str, Tuple[Any]]:
+    def _get_observations(self, obs: Dict[str, Any], agent_actions:Dict[str, Any]=None) -> Dict[str, Tuple[Any]]:
         """Update and return frames stack with given latest single frame."""
 
         for agent_id, agent_obs in obs.items():
+            
+            obs_history = {"ego": agent_obs["ego"]}
+            if agent_actions is not None:
+                if agent_id in agent_actions:
+                    obs_history["actions"] = agent_actions[agent_id]
 
-            self._frames[agent_id].appendleft({"ego": agent_obs["ego"]})
-
+            self._frames[agent_id].appendleft(obs_history)
             while len(self._frames[agent_id]) < self._num_stack:
-                self._frames[agent_id].appendleft({"ego": agent_obs["ego"]})
+                self._frames[agent_id].appendleft(obs_history)
                 
             frames_seq = tuple(self._frames[agent_id])
             agent_obs["history"] = copy.deepcopy(frames_seq)
@@ -84,7 +88,7 @@ class HistoryStack(gym.Wrapper):
             agent_actions
         )
 
-        return self._get_observations(env_observations), rewards, dones, infos
+        return self._get_observations(env_observations, agent_actions), rewards, dones, infos
 
     def reset(self) -> Dict[str, Tuple[Any]]:
         """Resets the environment.
