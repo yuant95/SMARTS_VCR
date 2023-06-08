@@ -135,7 +135,6 @@ def make(
         img_pixels=config["img_pixels"],
         sumo_headless=not config["sumo_gui"],  # If False, enables sumo-gui display.
         headless=not config["head"],  # If False, enables Envision display.
-        envision_record_data_replay_path="/home/yuant426/Desktop/test"
     )
     
     env.seed(seed)
