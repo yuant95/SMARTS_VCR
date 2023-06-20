@@ -15,8 +15,10 @@ from smarts.env.wrappers.format_action import FormatAction
 from smarts.env.wrappers.format_obs import FormatObs
 from smarts.env.wrappers.frame_stack import FrameStack
 from smarts.env.wrappers.single_agent import SingleAgent
-from smarts.env.wrappers.recorder_wrapper import RecorderWrapper
+# from smarts.env.wrappers.recorder_wrapper import RecorderWrapper
 from smarts.env.wrappers.parallel_env import ParallelEnv
+
+from .visualizer import RecorderWrapper
 
 
 def wrappers_baseline(config: Dict[str, Any]):

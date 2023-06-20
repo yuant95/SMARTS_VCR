@@ -9,7 +9,7 @@ smarts:
 # SUMO Training 
 
     - "3lane_cruise_single_agent"
-    - "3lane_merge_single_agent"
+    - "3lane_single_agent"
     # - "3lane_overtake"
     - "1_to_1lane_left_turn_c"
     - "1_to_2lane_left_turn_c"

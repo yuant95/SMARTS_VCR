@@ -37,6 +37,7 @@ from smarts.core.agent_interface import (
     DrivableAreaGridMap,
     RoadWaypoints,
     Waypoints,
+    NeighborhoodVehicles
 )
 from smarts.core.controllers import ActionSpaceType
 from smarts.env.hiway_env import HiWayEnv
@@ -263,7 +264,7 @@ def _get_env_specs(scenario: str):
             ),
             "num_agent": 2,
         }
-    elif scenario == "3lane_merge_single_agent":
+    elif scenario == "3lane_single_agent":
         return {
             "scenario": str(
                 pathlib.Path(__file__).absolute().parents[1]
@@ -421,7 +422,8 @@ def resolve_agent_interface(
         ),
         lidar=True,
         max_episode_steps=max_episode_steps,
-        neighborhood_vehicles=True,
+        #Note change the radius to be None for visualization purpose
+        neighborhood_vehicles=NeighborhoodVehicles(radius=None),
         ogm=OGM(
             width=img_pixels,
             height=img_pixels,
