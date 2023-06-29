@@ -74,26 +74,13 @@ for name, routes in enumerate(route_comb):
 
 
 agent_prefabs = "smarts.scenarios.itra.3lane_cruise_single_agent_itra.agent_prefabs"
-
-# motion_planner_actor = t.SocialAgentActor(
-#     name="motion-planner-agent",
-#     agent_locator=f"{agent_prefabs}:motion-planner-agent-v0",
-# )
-
-# zoo_agent_actor = t.SocialAgentActor(
-#     name="zoo-agent",
-#     agent_locator=f"{agent_prefabs}:zoo-agent-v0",
-# )
-
-# invertedai_agent_actor = t.SocialAgentActor(
-#     name="invertedai-agent",
-#     agent_locator=f"{agent_prefabs}:inverted-agent-v0",
-# )
+SCENARIOS_NAME = "3lane_cruise_single_agent_itra"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",
-    agent_locator=f"{agent_prefabs}:inverted-boid-agent-v0",
+    agent_locator=f"{agent_prefabs}:inverted-boid-agent-{SCENARIOS_NAME}-v0",
 )
+
 
 bubbles = [
     # t.Bubble(

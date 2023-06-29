@@ -408,7 +408,7 @@ def resolve_agent_interface(
         not_moving=False,
         agents_alive=None,
     )
-    max_episode_steps = 400
+    max_episode_steps = 300
     road_waypoint_horizon = 50
     waypoints_lookahead = 50
     return AgentInterface(

@@ -90,6 +90,8 @@ def main(args: argparse.Namespace):
     envs_eval = {}
     wrappers = multi_scenario_env.wrappers_vec(config=config)
     wrappers_eval = multi_scenario_env.wrappers_eval(config=config)
+    if not config["eval_visualization"]:
+        wrappers_eval = wrappers_eval[:-1]
 
     traffic_agent = config["traffic_agent"]
     if traffic_agent == "sumo":
@@ -100,7 +102,12 @@ def main(args: argparse.Namespace):
         scenarios_eval = scenarios
     elif traffic_agent == "itra":
         scenarios = config["itra_scenarios"]
-        scenarios_eval = config["itra_evaluation_scenarios"]
+        scenarios_eval = scenarios #config["itra_evaluation_scenarios"]
+    elif traffic_agent == "all":
+        scenarios = config["sumo_scenarios"]
+        scenarios.extend(config["smarts_zoo_scenarios"])
+        scenarios.extend(config["itra_scenarios"])
+        scenarios_eval = scenarios
     else:
         raise RuntimeError("Traffic agent type {} is not supported.".format(traffic_agent))
                    
@@ -131,6 +138,7 @@ def main(args: argparse.Namespace):
 
     envs_train = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers, seed=seed) 
                    for scen, seed in zip(scenarios, range(len(scenarios))) ]
+    n_envs_train = len(envs_train)
     envs_train = dummy_vec_env.DummyVecEnv([lambda i=i:envs_train[i] for i in range(len(envs_train))])
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
 
@@ -140,6 +148,9 @@ def main(args: argparse.Namespace):
     # envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
     # envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
 
+    CONST_N_ENVS = 6 
+    train_steps = int (config["train_steps"] * CONST_N_ENVS / n_envs_train)
+    config.update({"train_steps":train_steps}, allow_val_change=True)
 
     # Run training or evaluation.
     run(envs_train=envs_train, envs_eval=envs_eval, config=config, wandb_run = wandb_run)
@@ -216,7 +227,8 @@ def run(
             n_eval_episodes=config["eval_eps"], 
             deterministic=True, 
             return_episode_rewards=True,
-            meta_data=True
+            meta_data=config["eval_visualization"],
+            visualization=config["eval_visualization"]
         )
         print("\nFinished evaluating.\n")
 
@@ -245,7 +257,9 @@ if __name__ == "__main__":
         # default="/home/yuant426/Downloads/dandy-deluge-1257_PPO_450000_steps.zip",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_06_06_14_17_37/checkpoint/PPO_1350000_steps.zip",
         # default="/home/yuant426/Downloads/fragrant-valley-1327_PPO_1680000_steps.zip"
-        # default="/home/yuant426/Downloads/super-frog-1366-PPO_990000_steps.zip"
+        # default="/home/yuant426/Downloads/legendary-jazz-1422_PPO_1860000_steps.zip"
+        # default="/home/yuant426/Downloads/driven-dew-1499_PPO_420000_steps.zip"
+        # default="/home/yuant426/Downloads/PPO_1620000_steps.zip"
     )
     # parser.add_argument(
     #     "--epochs",
@@ -290,15 +304,28 @@ if __name__ == "__main__":
         default="discrete11",
     )
     parser.add_argument(
+        "--eval_visualization",
+        help="Whether include visualization upload in the evaluation process",
+        type=bool,
+        default=True,
+    )
+    parser.add_argument(
+        "--meta_data",
+        help="Whether include meta data including traffic density etc in the evaluation process",
+        type=bool,
+        default=False,
+    )
+    parser.add_argument(
         "--baseline",
         help="Will load the model given the path",
         type=str,
         # default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
         # default="/home/yuant426/Downloads/PPO_990000_steps_smooth-rain-1288.zip",
-        # default="/ubc/cs/research/plai-scratch/smarts/baselines/PPO_240000_steps.zip"
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_05_24_00_12_45/checkpoint/PPO_990000_steps.zip",
         # default="/home/yuant426/Downloads/super-frog-1366-PPO_990000_steps.zip"
+        # default="/home/yuant426/Downloads/legendary-jazz-1422_PPO_1860000_steps.zip"
+        # default="/home/yuant426/Downloads/PPO_1620000_steps.zip"
     )
     parser.add_argument(
         "--w0",
@@ -340,7 +367,7 @@ if __name__ == "__main__":
         "--traffic_agent",
         help="Pick traffic agent from sumo, smarts zoo, and itra",
         type=str,
-        default= "itra"
+        default= "all"
     )
 
 

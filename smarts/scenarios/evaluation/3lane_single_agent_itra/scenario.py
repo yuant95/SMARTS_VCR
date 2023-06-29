@@ -80,16 +80,6 @@ invertedai_boid_agent = t.BoidAgentActor(
     agent_locator=f"{agent_prefabs}:inverted-boid-agent-{SCENARIOS_NAME}-v0",
 )
 
-motion_planner_actor = t.SocialAgentActor(
-    name="motion-planner-agent",
-    agent_locator=f"{agent_prefabs}:motion-planner-agent-v0",
-)
-
-zoo_agent_actor = t.SocialAgentActor(
-    name="zoo-agent",
-    agent_locator=f"{agent_prefabs}:zoo-agent-v0",
-)
-
 bubbles = [
     # t.Bubble(
     #     zone=t.MapZone(start=("E0", 0, 5), length=2, n_lanes=1),

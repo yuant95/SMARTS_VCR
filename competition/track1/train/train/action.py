@@ -193,6 +193,9 @@ def _discrete_new() -> Tuple[Callable[[Dict[str, int]], Dict[str, np.ndarray]], 
                 action_map.update({index: [dist, angle]}) 
                 index += 1
 
+            # action_map.update({index: [dist, angle]}) 
+            # index += 1
+
     #finally add the slow down action
     action_map.update({index: [0, 0]}) 
 
