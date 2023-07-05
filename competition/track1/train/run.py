@@ -1,4 +1,3 @@
-from multiprocessing import dummy
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -11,11 +10,12 @@ from functools import partial
 from datetime import datetime
 from itertools import cycle
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import gym
 import stable_baselines3 as sb3lib
 import torch as th
+import numpy as np
 
 from ruamel.yaml import YAML
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -104,10 +104,18 @@ def main(args: argparse.Namespace):
         scenarios = config["itra_scenarios"]
         scenarios_eval = scenarios #config["itra_evaluation_scenarios"]
     elif traffic_agent == "all":
-        scenarios = config["sumo_scenarios"]
+        scenarios = []
+        scenarios.extend(config["sumo_scenarios"])
         scenarios.extend(config["smarts_zoo_scenarios"])
         scenarios.extend(config["itra_scenarios"])
-        scenarios_eval = scenarios
+        if config["mode"] == "train":
+            scenarios_eval = scenarios
+        else:
+            scenarios_eval = {
+                "sumo":config["sumo_scenarios"],
+                "zoo":config["smarts_zoo_scenarios"],
+                "itra":config["itra_scenarios"],
+            }
     else:
         raise RuntimeError("Traffic agent type {} is not supported.".format(traffic_agent))
                    
@@ -143,8 +151,14 @@ def main(args: argparse.Namespace):
     envs_train = VecMonitor(venv=envs_train, filename=str(config["logdir"]), info_keywords=("is_success",))
 
     # Initialize evaluation with different random seed
-    envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed*2) 
-                    for scen, seed in zip(scenarios_eval, range(len(scenarios_eval))) ]   
+    if type(scenarios_eval) == list:
+        envs_eval = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed*2) 
+                        for scen, seed in zip(scenarios_eval, range(len(scenarios_eval))) ]
+    else:
+        envs_eval = {}   
+        for key, value in scenarios_eval.items():
+            envs_eval[key] = [multi_scenario_env.make(config=config, scenario=scen, wrappers=wrappers_eval, seed=seed*2) 
+                        for scen, seed in zip(value, range(len(value))) ]
     # envs_eval = dummy_vec_env.DummyVecEnv([lambda i=i:envs_eval[i] for i in range(len(envs_eval))])
     # envs_eval = VecMonitor(venv=envs_eval, filename=str(config["logdir"]), info_keywords=("is_success",))
 
@@ -220,17 +234,57 @@ def run(
         model = getattr(sb3lib, config["alg"]).load(
             config["model"], print_system_info=True
         )
+        columns = ["Traffic Agent", "Completion Rate", "Front Collision Rate", "Rear Collision Rate", "Other Collision Rate", "Collision Rate", "Off Road Rate"]
+        result_table = wandb.Table(columns=columns)
 
-        episode_rewards, episode_lengths, episode_infos = evaluate_policy_visualization(
-            model, 
-            envs_eval, 
-            n_eval_episodes=config["eval_eps"], 
-            deterministic=True, 
-            return_episode_rewards=True,
-            meta_data=config["eval_visualization"],
-            visualization=config["eval_visualization"]
-        )
+        if config["traffic_agent"] == "all":
+            for traffic_agent, envs in envs_eval.items():
+                table_row = get_evaluation_results(traffic_agent, envs, model, config)
+                result_table.add_data(*table_row)
+        else:
+            table_row = get_evaluation_results(config["traffic_agent"], envs_eval, model, config)
+            result_table.add_data(*table_row)
+
+        wandb.log({"Evaluation Table": result_table})
+
         print("\nFinished evaluating.\n")
+
+
+def get_evaluation_results(traffic_agent: str, envs_eval: List[gym.Env], model, config):
+    results = evaluate_policy_visualization(
+                    model, 
+                    envs_eval, 
+                    n_eval_episodes=config["eval_eps"], 
+                    deterministic=True, 
+                    return_episode_rewards=False,
+                    meta_data=config["eval_visualization"],
+                    visualization=config["eval_visualization"],
+                    return_detailed_results=True,
+                    traffic_agent=traffic_agent
+                )
+    data = get_evaluation_table_row(traffic_agent, results)
+
+    return data
+
+
+def get_evaluation_table_row(traffic_agent:str, results:Dict):
+
+    mean_collision_rate = np.mean([results[scen_name]["collision_rate"] for scen_name in list(results.keys())])
+    mean_completion_rate = np.mean([results[scen_name]["completion_rate"] for scen_name in list(results.keys())])
+    mean_off_road_rate = np.mean([results[scen_name]["off_road_rate"] for scen_name in list(results.keys())])
+
+    total_collision = np.sum([results[scen_name]["collision"] for scen_name in list(results.keys())])
+    total_front_collision = np.sum([results[scen_name]["collision_type"]["front"] for scen_name in list(results.keys())])
+    total_rear_collision = np.sum([results[scen_name]["collision_type"]["rear"] for scen_name in list(results.keys())])
+    total_other_collision = np.sum([results[scen_name]["collision_type"]["other"] for scen_name in list(results.keys())])
+
+    mean_collision_front_rate = mean_collision_rate*total_front_collision/total_collision
+    mean_collision_rear_rate = mean_collision_rate*total_rear_collision/total_collision
+    mean_collision_other_rate = mean_collision_rate*total_other_collision/total_collision
+
+    my_data = [traffic_agent, mean_completion_rate, mean_collision_front_rate, mean_collision_rear_rate, mean_collision_other_rate, mean_collision_rate, mean_off_road_rate]
+
+    return my_data
 
 
 if __name__ == "__main__":
@@ -252,14 +306,14 @@ if __name__ == "__main__":
         "--model",
         help="Directory path to saved RL model. Required if `--mode=evaluate`.",
         type=str,
-        # default="",
+        default="",
         # default="/home/yuant426/Downloads/PPO_990000_steps_smooth-rain-1288.zip",
         # default="/home/yuant426/Downloads/dandy-deluge-1257_PPO_450000_steps.zip",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_06_06_14_17_37/checkpoint/PPO_1350000_steps.zip",
         # default="/home/yuant426/Downloads/fragrant-valley-1327_PPO_1680000_steps.zip"
         # default="/home/yuant426/Downloads/legendary-jazz-1422_PPO_1860000_steps.zip"
         # default="/home/yuant426/Downloads/driven-dew-1499_PPO_420000_steps.zip"
-        # default="/home/yuant426/Downloads/PPO_1620000_steps.zip"
+        # default="/home/yuant426/Downloads/astral-snowball-1537_PPO_240000_steps.zip"
     )
     # parser.add_argument(
     #     "--epochs",
@@ -319,7 +373,7 @@ if __name__ == "__main__":
         "--baseline",
         help="Will load the model given the path",
         type=str,
-        # default="",
+        default="",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_03_30_00_58_00/checkpoint/PPO_640000_steps.zip"
         # default="/home/yuant426/Downloads/PPO_990000_steps_smooth-rain-1288.zip",
         # default="/home/yuant426/Desktop/SMARTS_track1/competition/track1/train/logs/2023_05_24_00_12_45/checkpoint/PPO_990000_steps.zip",
@@ -367,7 +421,7 @@ if __name__ == "__main__":
         "--traffic_agent",
         help="Pick traffic agent from sumo, smarts zoo, and itra",
         type=str,
-        default= "all"
+        default= "itra"
     )
 
 
