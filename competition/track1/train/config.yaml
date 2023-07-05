@@ -10,11 +10,11 @@ smarts:
 
     - "3lane_cruise_single_agent"
     - "3lane_single_agent"
-    # - "3lane_overtake"
     - "1_to_1lane_left_turn_c"
     - "1_to_2lane_left_turn_c"
     - "1_to_2lane_left_turn_t"
     - "1_to_2lane_right_turn_c"
+     # # - "3lane_overtake"
 
   smarts_zoo_scenarios:
 # SMARTS ZOO Training
@@ -31,13 +31,13 @@ smarts:
 
     - "3lane_cruise_single_agent_itra"
     - "3lane_single_agent_itra"
-    - "1_to_1lane_left_turn_c_itra"
+    # - "1_to_1lane_left_turn_c_itra"
     - "1_to_2lane_left_turn_c_itra"
     - "1_to_2lane_left_turn_t_itra"
     - "1_to_2lane_right_turn_c_itra"
-    ## - "1_to_1lane_left_turn_c_itra_stop"
+    - "1_to_1lane_left_turn_c_itra_stop"
 
-  itra_evaluation_scenarios:
+  # itra_evaluation_scenarios:
   # # ITRA Evaluation
     # - "eval_3lane_cruise_single_agent_itra_batch"
     # - "eval_3lane_single_agent_itra"

@@ -67,6 +67,7 @@ turn_right_routes = [
 all_routes = vertical_routes + horizontal_routes + turn_left_routes + turn_right_routes
 route_comb = [com for elems in range(1, 5) for com in combinations(all_routes, elems)]
 traffic = {}
+scale = 1.55
 for name, routes in enumerate(route_comb):
     traffic[str(name)] = Traffic(
         flows=[
@@ -76,7 +77,7 @@ for name, routes in enumerate(route_comb):
                     end=(f"edge-{r[1]}", 0, "max"),
                 ),
                 # Random flow rate, between 3 and 5 vehicles per minute.
-                rate=60 * random.uniform(5, 15),
+                rate=60 * random.uniform(int(scale*5), int(scale*15)),
                 # Random flow start time, between 0 and 10 seconds.
                 begin=random.uniform(0, 5),
                 # For an episode with maximum_episode_steps=3000 and step
@@ -90,22 +91,15 @@ for name, routes in enumerate(route_comb):
         ]
     )
 
-agent_prefabs = "smarts.scenarios.itra.1_to_1lane_left_turn_c_itra.agent_prefabs"
+
+agent_prefabs = "smarts.scenarios.itra.1_to_1lane_left_turn_c_itra_stop.agent_prefabs"
+SCENARIOS_NAME = "1_to_1lane_left_turn_c_itra_stop"
 
 invertedai_boid_agent = t.BoidAgentActor(
     name="invertedai-boid-agent",
-    agent_locator=f"{agent_prefabs}:inverted-boid-agent-v0",
+    agent_locator=f"{agent_prefabs}:inverted-boid-agent-{SCENARIOS_NAME}-v0",
 )
 
-invertedai_agent_actor = t.SocialAgentActor(
-    name="invertedai-agent",
-    agent_locator=f"{agent_prefabs}:inverted-agent-v0",
-)
-
-zoo_agent_actor = t.SocialAgentActor(
-    name="zoo-agent",
-    agent_locator=f"{agent_prefabs}:zoo-agent-v0",
-)
 
 bubbles = [
     # t.Bubble(

@@ -108,6 +108,9 @@ class ScenePlotter:
             self.reset_scene_plotter(infos)
         else: 
             agent_ids, agent_states, agent_attributes = self.get_iai_agents(infos)
+            if len(agent_states) < 20:
+                diff = 20 - len(agent_states)
+                agent_states += [agent_states[-1]] * diff
             self.plotter.record_step(agent_states)
 
     def generate_gif(self):
@@ -182,6 +185,10 @@ class ScenePlotter:
         self.plotter = iai.utils.ScenePlotter(rendered_static_map, location_info.map_fov, (location_info.map_center.x, location_info.map_center.y), location_info.static_actors)
 
         agent_ids, agent_states, agent_attributes = self.get_iai_agents(infos)
+        agent_attributes = [agent_attributes[0]]*20
+        if len(agent_states) < 20:
+            diff = 20 - len(agent_states)
+            agent_states += [agent_states[-1]] * diff
         self.plotter.initialize_recording(agent_states, agent_attributes=agent_attributes, conditional_agents = [0])
 
     def get_iai_agents(self, infos):
