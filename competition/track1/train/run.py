@@ -313,7 +313,7 @@ if __name__ == "__main__":
         # default="/home/yuant426/Downloads/fragrant-valley-1327_PPO_1680000_steps.zip"
         # default="/home/yuant426/Downloads/legendary-jazz-1422_PPO_1860000_steps.zip"
         # default="/home/yuant426/Downloads/driven-dew-1499_PPO_420000_steps.zip"
-        # default="/home/yuant426/Downloads/astral-snowball-1537_PPO_240000_steps.zip"
+        # default="/home/yuant426/Downloads/PPO_720000_steps.zip"
     )
     # parser.add_argument(
     #     "--epochs",
@@ -343,7 +343,7 @@ if __name__ == "__main__":
         "--eval_freq",
         help=" Evaluate the trained model every eval_freq steps and save the best model.",
         type=int,
-        default=10_000,
+        default=5_000,
     )
     parser.add_argument(
         "--alg",
