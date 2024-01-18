@@ -166,6 +166,7 @@ class HiWayEnv(gym.Env):
             visdom=visdom_client,
             fixed_timestep_sec=fixed_timestep_sec,
             zoo_addrs=zoo_addrs,
+            external_provider=True,
         )
 
     @property

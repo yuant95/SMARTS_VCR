@@ -400,8 +400,8 @@ def resolve_agent_interface(
     """Resolve an agent interface for the environments in this module."""
 
     done_criteria = DoneCriteria(
-        collision=True,
-        off_road=True,
+        collision=False,
+        off_road=False,
         off_route=False,
         on_shoulder=False,
         wrong_way=False,
